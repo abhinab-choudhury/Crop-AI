@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  react-native-quick-base64: 2.2.2
+
 patchedDependencies:
   fast-png@^8.0.0:
     hash: 296af93cea01becd98ff831031295b6e037acb82e440d0082cf02532ece016e4
@@ -5753,8 +5756,8 @@ packages:
     peerDependencies:
       react-native: '>=0.48.4'
 
-  react-native-quick-base64@2.1.1:
-    resolution: {integrity: sha512-/L+SaapDLcLcHA3Kj0/cvEhFS/oLXyD6DUXwdckTR/75bzUjqf1FrusUTvJho/lzXnCR1VtBGn+EEvrLmkDTmw==}
+  react-native-quick-base64@2.2.2:
+    resolution: {integrity: sha512-WLHSifHLoamr2kF00Gov0W9ud6CfPshe1rmqWTquVIi9c62qxOaJCFVDrXFZhEBU8B8PvGLVuOlVKH78yhY0Fg==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -8670,7 +8673,7 @@ snapshots:
       promise.allsettled: 1.0.7
       react: 19.1.0
       react-native: 0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0)
-      react-native-quick-base64: 2.1.1(react-native@0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0))(react@19.1.0)
+      react-native-quick-base64: 2.2.2(react-native@0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0))(react@19.1.0)
       react-native-url-polyfill: 1.3.0(react-native@0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0))
       typed-emitter: 2.1.0
       web-streams-polyfill: 4.2.0
@@ -12962,9 +12965,8 @@ snapshots:
       react-native: 0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0)
       react-native-iphone-x-helper: 1.3.1(react-native@0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0))
 
-  react-native-quick-base64@2.1.1(react-native@0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0))(react@19.1.0):
+  react-native-quick-base64@2.2.2(react-native@0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0))(react@19.1.0):
     dependencies:
-      base64-js: 1.5.1
       react: 19.1.0
       react-native: 0.81.4(@babel/core@7.28.4)(@types/react@19.0.14)(react@19.1.0)
 

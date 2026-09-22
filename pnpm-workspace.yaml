@@ -5,6 +5,12 @@ packages:
 patchedDependencies:
   fast-png@^8.0.0: patches/fast-png.patch
 
+overrides:
+  # 2.1.1 bundles RN codegen classes (com.facebook.fbreact.specs.*) that clash
+  # with react-native 0.81 -> DexArchiveMergerException at mergeDexRelease.
+  # 2.2.x uses the native JSI install / proper codegen (no core spec duplication).
+  react-native-quick-base64: 2.2.2
+
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
   - browser-tabs-lock
