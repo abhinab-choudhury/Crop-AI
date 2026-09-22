@@ -51,7 +51,8 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.cropai.app",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan"
     }
   }
 }

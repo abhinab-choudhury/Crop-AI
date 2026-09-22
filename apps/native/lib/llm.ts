@@ -151,7 +151,14 @@ export async function downloadModel(
     return;
   }
 
-  dest.delete();
+  if (dest.exists) {
+    try {
+      // clear any partial download
+      dest.delete();
+    } catch (error) {
+      // fall through — create with overwrite:true clears the file too
+    }
+  }
   dest.create({ intermediates: true, overwrite: true });
 
   const handle = dest.open();
