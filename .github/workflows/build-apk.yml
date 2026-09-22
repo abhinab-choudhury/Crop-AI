@@ -50,9 +50,9 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Android SDK / NDK
-        uses: react-native-community/setup-android@v3
-
+      # Android SDK/NDK/CMake are preinstalled on ubuntu-latest (ANDROID_HOME,
+      # NDK 27.x default, licenses accepted). Gradle auto-installs the exact
+      # NDK/CMake version the project requests via NDK 27.1 if needed.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
