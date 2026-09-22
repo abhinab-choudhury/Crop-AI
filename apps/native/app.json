@@ -22,7 +22,8 @@
       ],
       "llama.rn",
       "expo-sqlite",
-      "./plugins/withOnnxruntimeRegistration"
+      "./plugins/withOnnxruntimeRegistration",
+      "./plugins/withLimitedAbis"
     ],
     "experiments": {
       "typedRoutes": true,

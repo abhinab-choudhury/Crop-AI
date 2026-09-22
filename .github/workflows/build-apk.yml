@@ -16,13 +16,17 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   # Public model asset URL baked into the JS bundle at build time (no secrets).
   # The ONNX disease model is a release asset of this very repository; the app
   # also falls back to this URL in code when the env var is unset.
   EXPO_PUBLIC_DISEASE_MODEL_URL: https://github.com/abhinab-choudhury/Crop-AI/releases/download/plant-disease-model/resnet9_plant_disease.onnx
+  # Ship a single arm64-v8a APK (~4x smaller than the 4-ABI universal build);
+  # the app only targets real phones. Override to 'x86_64' (emulator) or a
+  # comma list if a different target is needed.
+  APP_ABIS: arm64-v8a
 
 jobs:
   build-apk:
@@ -76,3 +80,19 @@ jobs:
           name: crop-ai-apk
           path: apps/native/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      # Publish the freshly built APK to a rolling "Latest APK" GitHub Release
+      # so the Deliverables/Releases tab always has the current build. Updates
+      # the existing `latest` release in place (asset gets replaced each run).
+      - name: Publish APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Crop AI APK (latest)
+          body: |
+            Automated release — APK built from `${{ github.ref_name }}` @ `${{ github.sha }}`.
+            Install the attached `app-release.apk` directly on any Android phone.
+          files: apps/native/android/app/build/outputs/apk/release/*.apk
+          update_release_body: true
+          make_latest: true
+          fail_on_unmatched_files: true

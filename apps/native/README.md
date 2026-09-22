@@ -38,13 +38,19 @@ A CI workflow (`.github/workflows/build-apk.yml`) builds the release APK on dema
    ```
 
 2. On GitHub, open **Actions → Build Android APK → Run workflow**.
-3. Wait for the run to finish, then download the **`crop-ai-apk`** artifact (it contains
-   `app-release.apk`).
-4. Install it on your Android phone — transfer the file and open it, or use:
+3. Wait for the run to finish. The fresh APK is published automatically to the
+   **Releases → Latest APK** page on this repo (also available as the `crop-ai-apk`
+   workflow artifact).
+4. Install it on your Android phone — download `app-release.apk` from the release and
+   open it, or use:
 
    ```bash
    adb install app-release.apk
    ```
+
+> Size: release builds package a single `arm64-v8a` APK (~4x smaller than a universal
+> build), which covers virtually all modern Android phones. Set `APP_ABIS` in the
+> workflow to build for other architectures.
 
 The workflow only builds the **native app** (`apps/native`): it installs pnpm/Node/JDK,
 runs `expo prebuild -p android`, then `./gradlew assembleRelease`.
