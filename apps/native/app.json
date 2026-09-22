@@ -13,12 +13,16 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
+      "expo-notifications",
       [
         "expo-audio",
         {
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
         }
-      ]
+      ],
+      "llama.rn",
+      "expo-sqlite",
+      "./plugins/withOnnxruntimeRegistration"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -26,7 +30,7 @@
     },
     "newArchEnabled": true,
     "orientation": "portrait",
-    "icon": "./assets/playstore.png",
+    "icon": "./assets/icon-android.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",

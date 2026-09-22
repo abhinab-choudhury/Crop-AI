@@ -77,7 +77,8 @@ The project is built as a TurboRepo monorepo, combining mobile, web, backend, an
 - [x] Multilingual support for farmer accessibility
 
 ### 🔐 Authentication
-- [x] **Clerk** for secure, scalable authentication
+- [x] **Email OTP login** (JWT access/refresh tokens, no password)
+- [x] OTP delivery via **Mailpit** (dev SMTP + inbox UI)
 - [x] Works across mobile
       
 ---
@@ -88,7 +89,7 @@ The project is built as a TurboRepo monorepo, combining mobile, web, backend, an
 
 * React Native + Expo
 * React + Vite (Web)
-* Clerk Authentication
+* Email OTP Authentication (JWT)
 
 ### Backend
 
@@ -158,8 +159,6 @@ This project uses **MongoDB** with **Mongoose**.
 Get API Keys from 
 - [WEATHER API](https://www.weatherapi.com/) 
 - [TAVILY](https://app.tavily.com/)
-- [CLOUDINARY](https://cloudinary.com/)
-- [CLERK](https://clerk.com/)
 
 ---
 
@@ -171,8 +170,33 @@ Start the development servers:
 pnpm dev
 ```
 
-* The mobile app can be run via **Expo Go**.
+* The mobile app can be run via **Expo Go** (chat, recommendations).
+* Plant-disease detection runs **on-device with ONNX** — this needs a custom dev client, not Expo Go:
+
+  ```bash
+  cd apps/native
+  npx expo run:android   # or: pnpm dev:tunnel after building the dev client
+  ```
+
+  The ONNX model is downloaded once from `EXPO_PUBLIC_DISEASE_MODEL_URL` and then works fully offline.
 * Backend API is available at: [http://localhost:3000](http://localhost:3000).
+
+---
+
+### 4. Build an Android APK (test on your phone)
+
+The **native app only** can be built into an installable `.apk` without any local Android
+toolchain — using the **GitHub Actions** workflow:
+
+```bash
+git push origin main
+```
+
+Then on GitHub: **Actions → Build Android APK → Run workflow**, and download the
+`crop-ai-apk` artifact from the completed run. It's signed for direct install on any device
+(first-run downloads the ~491 MB on-device LLM and ONNX disease model, resumable).
+
+For a local build (JDK 17 + Android SDK/NDK), see [apps/native/README.md](apps/native/README.md#building-the-android-apk).
 
 ---
 

@@ -2,12 +2,22 @@ services:
   mongo_db:
     image: mongo:latest
     restart: unless-stopped
+    environment:
+      # Workaround for MongoDB 8.x crashing on Linux kernel 6.19+ (SERVER-121912)
+      GLIBC_TUNABLES: 'glibc.pthread.rseq=1'
     ports:
       - '27017:27017'
     volumes:
       - mongo_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI
 
 volumes:
   mongo_data:

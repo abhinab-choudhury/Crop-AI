@@ -2,9 +2,12 @@ packages:
   - apps/*
   - packages/*
 
+patchedDependencies:
+  fast-png@^8.0.0: patches/fast-png.patch
+
 onlyBuiltDependencies:
-  - '@clerk/shared'
   - '@tailwindcss/oxide'
   - browser-tabs-lock
   - core-js
   - esbuild
+  - llama.rn

@@ -1,14 +1,7 @@
-// import { useUser } from '@clerk/clerk-expo';
-// import { Redirect } from 'expo-router';
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 
 export default function Profile() {
-  // const { user } = useUser();
-  // if (!user?.primaryEmailAddress?.emailAddress) {
-  //   return <Redirect href="/(drawer)/login" />;
-  // }
-
   return (
     <ScrollView className="flex-1">
       <View className="p-6">

@@ -211,6 +211,8 @@ node_modules
 .alchemy
 .env
 v10
-.pkl
-.onnx
-.pth
+# ML model binaries / artifacts (distributed via GitHub Releases, not versioned)
+*.pkl
+*.onnx
+*.pth
+*.gguf

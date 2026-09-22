@@ -9,12 +9,9 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
-import { useUser } from '@clerk/clerk-expo';
-// import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function CropRecommendationForm() {
-  const { user } = useUser();
   const [form, setForm] = React.useState({
     nitrogen: '',
     phosphorus: '',
@@ -40,7 +37,6 @@ export default function CropRecommendationForm() {
     setResult(null);
 
     try {
-      console.log('Form Data:', form);
       await new Promise((r) => setTimeout(r, 1500)); // fake delay
       setResult('🍎 Apple');
     } finally {
@@ -67,9 +63,6 @@ export default function CropRecommendationForm() {
       <ScrollView contentContainerClassName="flex-grow justify-center items-center p-5">
         {/* Title */}
         <View className="mb-8 items-center">
-          <Text className="text-3xl font-poppinsBold text-teal-700 text-center mb-2">
-            🌱 Crop Recommendation
-          </Text>
           <Text className="text-center text-teal-600 text-base max-w-xs">
             Enter your soil and location parameters to get the best crop suggestions.
           </Text>

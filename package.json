@@ -14,7 +14,9 @@
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
     "dev:ml-server": "turbo -F ml-server dev",
-    "prepare": "husky"
+    "prepare": "husky",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
@@ -28,5 +30,10 @@
     ]
   },
   "packageManager": "pnpm@10.15.1",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dependencies": {
+    "expo": "~54.0.27",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  }
 }

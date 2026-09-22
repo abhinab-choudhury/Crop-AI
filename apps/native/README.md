@@ -21,12 +21,71 @@ Make sure you have the following installed:
 
 Make sure your backend server is running and accessible from the app.
 
-## Commands
+## 🏗 Building the Android APK
+
+This app uses custom native modules (`llama.rn`, ONNX Runtime, expo-sqlite) wired through
+[config plugins](../app.json), so it must be built as a **standalone native APK** — a plain
+Expo Go build cannot run the on-device LLM or plant-disease detection.
+
+### Option A — GitHub Actions (recommended, no local toolchain)
+
+A CI workflow (`.github/workflows/build-apk.yml`) builds the release APK on demand:
+
+1. Push your code:
+
+   ```bash
+   git push origin main
+   ```
+
+2. On GitHub, open **Actions → Build Android APK → Run workflow**.
+3. Wait for the run to finish, then download the **`crop-ai-apk`** artifact (it contains
+   `app-release.apk`).
+4. Install it on your Android phone — transfer the file and open it, or use:
+
+   ```bash
+   adb install app-release.apk
+   ```
+
+The workflow only builds the **native app** (`apps/native`): it installs pnpm/Node/JDK,
+runs `expo prebuild -p android`, then `./gradlew assembleRelease`.
+
+### Option B — Local build
+
+Prerequisites: **JDK 17**, Android SDK with **NDK 27.x** and **CMake**, Node.js + pnpm.
 
 ```bash
-npx expo prebuild
-eas build --profile development --platform android
+# from the repo root
+pnpm install
+
+cd apps/native
+pnpm exec expo prebuild -p android
+
+cd android
+./gradlew assembleRelease \
+  -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m" \
+  -Dorg.gradle.workers.max=4 \
+  -Dorg.gradle.internal.http.socketTimeout=300000
 ```
+
+The APK lands at:
+
+```
+apps/native/android/app/build/outputs/apk/release/app-release.apk
+```
+
+### Notes
+
+- **The first build is slow** — Gradle + Maven downloads and the native compile of
+  `llama.rn` / ONNX Runtime can take 20–50 minutes and needs ~2 GB free RAM per Gradle
+  worker plus several GB of disk. Subsequent builds are faster (cached).
+- **Signing**: the release APK is signed with Expo's debug keystore, so it installs on any
+  device but cannot be published to the Play Store. Use EAS Build or a real keystore in
+  `android/app/build.gradle` for production.
+- **Model URLs** (`EXPO_PUBLIC_LLM_MODEL_*_URL`, `EXPO_PUBLIC_DISEASE_MODEL_URL`) are baked
+  into the JS bundle. They come from `apps/native/.env` or from the defaults in the code
+  (`lib/llm.ts`, `lib/disease-detection.ts`), so a build works without a `.env` file.
+- **On first run** the app downloads the 0.5B LLM GGUF (~491 MB) and the ONNX disease model
+  into its document directory — downloads are resumable and run fully offline afterwards.
 
 ## 📸 Screenshots
 

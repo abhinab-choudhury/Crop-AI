@@ -1,0 +1,78 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/native/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'patches/**'
+      - '.github/workflows/build-apk.yml'
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Public model asset URL baked into the JS bundle at build time (no secrets).
+  # The ONNX disease model is a release asset of this very repository; the app
+  # also falls back to this URL in code when the env var is unset.
+  EXPO_PUBLIC_DISEASE_MODEL_URL: https://github.com/abhinab-choudhury/Crop-AI/releases/download/plant-disease-model/resnet9_plant_disease.onnx
+
+jobs:
+  build-apk:
+    name: Build release APK (Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK / NDK
+        uses: react-native-community/setup-android@v3
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prebuild native Android project
+        working-directory: apps/native
+        run: pnpm exec expo prebuild -p android --no-install
+
+      - name: Build release APK
+        working-directory: apps/native/android
+        run: |
+          ./gradlew assembleRelease --console=plain \
+            -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m" \
+            -Dorg.gradle.workers.max=4 \
+            -Dorg.gradle.internal.http.socketTimeout=300000 \
+            -Dorg.gradle.internal.http.connectionTimeout=120000 \
+            -Dorg.gradle.internal.repository.max.retries=5
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: crop-ai-apk
+          path: apps/native/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

@@ -1,0 +1,39 @@
+diff --git a/lib/helpers/text.js b/lib/helpers/text.js
+index db5528ebda5f52919b539fcdee4a251e2faff43f..abdfc98ee903ac75d5850fb5849ba0927ff80c42 100644
+--- a/lib/helpers/text.js
++++ b/lib/helpers/text.js
+@@ -2,7 +2,17 @@ import { writeCrc } from "./crc.js";
+ // https://www.w3.org/TR/png/#11tEXt
+ export const textChunkName = 'tEXt';
+ const NULL = 0;
+-const latin1Decoder = new TextDecoder('latin1');
++let latin1Decoder = null;
++function getLatin1Decoder() {
++    if (latin1Decoder === null) {
++        try {
++            latin1Decoder = new TextDecoder('iso-8859-1');
++        } catch {
++            latin1Decoder = { decode: (bytes) => String.fromCharCode.apply(null, bytes) };
++        }
++    }
++    return latin1Decoder;
++}
+ function validateKeyword(keyword) {
+     validateLatin1(keyword);
+     if (keyword.length === 0 || keyword.length > 79) {
+@@ -39,13 +49,13 @@ export function readKeyword(buffer) {
+     }
+     const end = buffer.offset;
+     buffer.reset();
+-    const keyword = latin1Decoder.decode(buffer.readBytes(end - buffer.offset - 1));
++    const keyword = getLatin1Decoder().decode(buffer.readBytes(end - buffer.offset - 1));
+     // NULL
+     buffer.skip(1);
+     validateKeyword(keyword);
+     return keyword;
+ }
+ export function readLatin1(buffer, length) {
+-    return latin1Decoder.decode(buffer.readBytes(length));
++    return getLatin1Decoder().decode(buffer.readBytes(length));
+ }
+ //# sourceMappingURL=text.js.map

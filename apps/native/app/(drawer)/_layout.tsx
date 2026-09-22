@@ -1,18 +1,29 @@
-import React, { ComponentProps } from 'react';
+import React, { ComponentProps, useEffect } from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { DefaultTheme, Theme } from '@react-navigation/native';
 import { NAV_THEME, THEME } from '@/lib/constants';
-import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
+import { DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
 import { Image, Text, View } from 'react-native';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { SignedIn, useUser } from '@clerk/clerk-expo';
-import { SignOutButton } from '@/components/signout-btn';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useRouter } from 'expo-router';
+import { getSetting } from '@/lib/db';
+import { requestNewChat } from '@/lib/chat-session';
 import logo from '@/assets/icon.png';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 export default function DrawerLayout() {
+  const router = useRouter();
+
+  useEffect(() => {
+    getSetting('onboarding.completed').then((v) => {
+      if (v !== 'true') {
+        router.replace('/onboarding' as any);
+      }
+    });
+  }, [router]);
+
   const LIGHT_THEME: Theme = {
     ...DefaultTheme,
     colors: NAV_THEME.light.colors,
@@ -26,7 +37,6 @@ export default function DrawerLayout() {
   ) => (
     <Ionicons name={focused ? active : inactive} size={focused ? size + 2 : size} color={color} />
   );
-  const { user } = useUser();
 
   return (
     <Drawer
@@ -50,33 +60,39 @@ export default function DrawerLayout() {
           </View>
 
           <View className="mt-4 flex-1 px-2">
+            <DrawerItem
+              label={({ color }) => (
+                <Text className="font-poppinsMedium text-xl" style={{ color }}>
+                  Chat
+                </Text>
+              )}
+              icon={({ focused, color, size }) =>
+                tabIcon(focused, 'chatbubble', 'chatbubble-outline', size, color)
+              }
+              focused={props.state.routes[props.state.index]?.name === 'index'}
+              activeTintColor={LIGHT_THEME.colors.primary}
+              inactiveTintColor={THEME.light.mutedForeground}
+              activeBackgroundColor={THEME.light.muted}
+              labelStyle={{ fontSize: 15, fontWeight: '500' }}
+              onPress={() => {
+                props.navigation.navigate('index');
+                requestNewChat();
+              }}
+            />
             <DrawerItemList {...props} />
-            <SignOutButton />
           </View>
 
-          <SignedIn>
-            <View className="flex flex-row items-center gap-4 p-2 bg-gray-50 rounded-xl shadow-sm">
-              <Avatar
-                className="w-16 h-16 rounded-full border-2 border-teal-900"
-                alt={'user-profile'}
-              >
-                <AvatarImage
-                  source={{
-                    uri: user?.hasImage ? user?.imageUrl : 'https://github.com/mrzachnugent.png',
-                  }}
-                />
-                <AvatarFallback>
-                  <Text className="text-white font-bold">ZN</Text>
-                </AvatarFallback>
-              </Avatar>
-              <View className="flex flex-col">
-                <Text className="text-gray-900 font-semibold text-lg">{user?.firstName}</Text>
-                <Text className="text-gray-500 text-sm">
-                  {user?.emailAddresses[0].emailAddress}
-                </Text>
-              </View>
+          <View className="flex flex-row items-center gap-4 p-2 bg-gray-50 rounded-xl shadow-sm">
+            <Avatar className="w-16 h-16 rounded-full border-2 border-teal-900" alt="offline-app">
+              <AvatarFallback className="bg-teal-600">
+                <Text className="text-white font-bold">AI</Text>
+              </AvatarFallback>
+            </Avatar>
+            <View className="flex flex-col">
+              <Text className="text-gray-900 font-semibold text-lg">Offline Mode</Text>
+              <Text className="text-gray-500 text-sm">No account or internet needed</Text>
             </View>
-          </SignedIn>
+          </View>
         </DrawerContentScrollView>
       )}
     >
@@ -84,6 +100,7 @@ export default function DrawerLayout() {
         name="index"
         options={{
           title: 'Chat',
+          drawerItemStyle: { display: 'none' },
           headerTitle: () => <Text className="font-poppinsMedium text-xl">Chat</Text>,
           drawerLabel: ({ focused, color }) => (
             <Text
@@ -97,6 +114,25 @@ export default function DrawerLayout() {
           ),
           drawerIcon: ({ focused, color, size }) =>
             tabIcon(focused, 'chatbubble', 'chatbubble-outline', size, color),
+        }}
+      />
+      <Drawer.Screen
+        name="history"
+        options={{
+          title: 'History',
+          headerTitle: () => <Text className="font-poppinsMedium text-xl">History</Text>,
+          drawerLabel: ({ focused, color }) => (
+            <Text
+              className="font-poppinsMedium text-xl"
+              style={{
+                color: color,
+              }}
+            >
+              History
+            </Text>
+          ),
+          drawerIcon: ({ focused, color, size }) =>
+            tabIcon(focused, 'time', 'time-outline', size, color),
         }}
       />
       <Drawer.Screen
@@ -180,20 +216,11 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="chat/[id]"
         options={{
-          title: 'History',
+          title: 'Chat',
+          headerTitle: () => <Text className="font-poppinsMedium text-xl">Chat</Text>,
           drawerItemStyle: { display: 'none' },
           drawerIcon: ({ focused, color, size }) =>
             tabIcon(focused, 'time', 'time-outline', size, color),
-        }}
-      />
-      <Drawer.Screen
-        name="login"
-        options={{
-          title: 'Login',
-          headerShown: false,
-          drawerItemStyle: { display: 'none' },
-          drawerIcon: ({ focused, color, size }) =>
-            tabIcon(focused, 'log-in', 'log-in-outline', size, color),
         }}
       />
     </Drawer>

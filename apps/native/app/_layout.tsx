@@ -3,8 +3,9 @@ import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from '@react-navig
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import React, { useRef } from 'react';
-import { ActivityIndicator, Platform, View } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { ActivityIndicator, Image, Platform, View } from 'react-native';
+import logo from '@/assets/icon.png';
 
 import '../global.css';
 import {
@@ -16,8 +17,7 @@ import {
 import { NAV_THEME } from '@/lib/constants';
 import { useColorScheme } from '@/lib/use-color-scheme';
 import { setAndroidNavigationBar } from '@/lib/android-navigation-bar';
-import { ClerkProvider } from '@clerk/clerk-expo';
-import { tokenCache } from '@clerk/clerk-expo/token-cache';
+import { initDb, getSetting } from '@/lib/db';
 
 const useIsomorphicLayoutEffect =
   Platform.OS === 'web' && typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
@@ -44,6 +44,7 @@ export default function RootLayout() {
     Poppins_500Medium,
     Poppins_700Bold,
   });
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
   useIsomorphicLayoutEffect(() => {
     if (hasMounted.current) return;
@@ -53,33 +54,39 @@ export default function RootLayout() {
     }
 
     setAndroidNavigationBar(colorScheme);
+    if (Platform.OS !== 'web') {
+      initDb().catch((error) => console.error('Failed to init SQLite:', error));
+    }
     setIsColorSchemeLoaded(true);
     hasMounted.current = true;
   }, []);
 
-  if (!fontsLoaded || !isColorSchemeLoaded) {
+  useEffect(() => {
+    getSetting('onboarding.completed').then((v) => {
+      setOnboardingComplete(v === 'true');
+    });
+  }, []);
+
+  if (!fontsLoaded || !isColorSchemeLoaded || onboardingComplete === null) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
+      <View className="flex-1 items-center justify-center bg-white">
+        <Image source={logo} className="w-24 h-24 rounded-full mb-6" />
+        <ActivityIndicator size="large" color="#20C997" />
       </View>
     );
   }
 
   return (
-    <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-      tokenCache={tokenCache}
-    >
-      <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
-        <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(drawer)" />
-            </Stack>
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </ThemeProvider>
-    </ClerkProvider>
+    <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
+      <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(drawer)" />
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          </Stack>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
