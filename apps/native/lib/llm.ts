@@ -2,7 +2,7 @@ import { initLlama, releaseAllLlama, type LlamaContext, type TokenData } from 'l
 import { Directory, File, Paths } from 'expo-file-system';
 import { getSetting, setSetting } from '@/lib/db';
 
-export type LlmModelId = 'qwen2.5-0.5b' | 'qwen2.5-1.5b';
+export type LlmModelId = 'qwen2.5-0.5b' | 'qwen2.5-1.5b' | 'qwen2.5-vl-3b';
 
 export interface LlmModelInfo {
   id: LlmModelId;
@@ -13,9 +13,15 @@ export interface LlmModelInfo {
   approxSize: string;
   contextLength: number;
   sizeBytes: number;
+  /** Present only for multimodal (vision) models — the mmproj projector GGUF. */
+  mmprojFilename?: string;
+  mmprojUrl?: string;
+  mmprojSizeBytes?: number;
+  /** True when the model can accept images (a vision encoder is bundled). */
+  vision?: boolean;
 }
 
-const HF_BASE = 'https://huggingface.co/Qwen';
+const HF_BASE = 'https://huggingface.co';
 const GGUF = 'resolve/main';
 
 export const LLM_MODELS: LlmModelInfo[] = [
@@ -26,7 +32,7 @@ export const LLM_MODELS: LlmModelInfo[] = [
     filename: 'qwen2.5-0.5b-instruct-q4_k_m.gguf',
     url:
       process.env.EXPO_PUBLIC_LLM_MODEL_0_5B_URL ??
-      `${HF_BASE}/Qwen2.5-0.5B-Instruct-GGUF/${GGUF}/qwen2.5-0.5b-instruct-q4_k_m.gguf`,
+      `${HF_BASE}/Qwen/Qwen2.5-0.5B-Instruct-GGUF/${GGUF}/qwen2.5-0.5b-instruct-q4_k_m.gguf`,
     approxSize: '~0.5 GB',
     contextLength: 2048,
     sizeBytes: 491400032,
@@ -38,10 +44,28 @@ export const LLM_MODELS: LlmModelInfo[] = [
     filename: 'qwen2.5-1.5b-instruct-q4_k_m.gguf',
     url:
       process.env.EXPO_PUBLIC_LLM_MODEL_1_5B_URL ??
-      `${HF_BASE}/Qwen2.5-1.5B-Instruct-GGUF/${GGUF}/qwen2.5-1.5b-instruct-q4_k_m.gguf`,
+      `${HF_BASE}/Qwen/Qwen2.5-1.5B-Instruct-GGUF/${GGUF}/qwen2.5-1.5b-instruct-q4_k_m.gguf`,
     approxSize: '~1 GB',
     contextLength: 2048,
     sizeBytes: 1117320736,
+  },
+  {
+    id: 'qwen2.5-vl-3b',
+    label: 'Qwen 2.5-VL 3B',
+    description: 'Vision model — reads photos of crops & leaves',
+    filename: 'Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf',
+    url:
+      process.env.EXPO_PUBLIC_LLM_MODEL_VISION_URL ??
+      `${HF_BASE}/ggml-org/Qwen2.5-VL-3B-Instruct-GGUF/${GGUF}/Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf`,
+    mmprojFilename: 'mmproj-Qwen2.5-VL-3B-Instruct-f16.gguf',
+    mmprojUrl:
+      process.env.EXPO_PUBLIC_LLM_MMPROJ_URL ??
+      `${HF_BASE}/ggml-org/Qwen2.5-VL-3B-Instruct-GGUF/${GGUF}/mmproj-Qwen2.5-VL-3B-Instruct-f16.gguf`,
+    mmprojSizeBytes: 1240000000,
+    approxSize: '~3.1 GB (backbone + vision)',
+    contextLength: 4096,
+    sizeBytes: 1934123648,
+    vision: true,
   },
 ];
 
@@ -60,10 +84,19 @@ const getModelDir = (): Directory => new Directory(Paths.document.uri, 'models')
 const getModelFile = (id: LlmModelId): File =>
   new File(Paths.document.uri, 'models', getModelInfo(id).filename);
 
+const getMmprojFile = (id: LlmModelId): File | null => {
+  const info = getModelInfo(id);
+  return info.mmprojFilename ? new File(Paths.document.uri, 'models', info.mmprojFilename) : null;
+};
+
 export function getModelInfo(id: LlmModelId): LlmModelInfo {
   const info = LLM_MODELS.find((m) => m.id === id);
   if (!info) throw new Error(`Unknown LLM model: ${id}`);
   return info;
+}
+
+export function modelSupportsVision(id: LlmModelId): boolean {
+  return !!getModelInfo(id).vision;
 }
 
 export function isModelDownloaded(id: LlmModelId): boolean {
@@ -71,10 +104,23 @@ export function isModelDownloaded(id: LlmModelId): boolean {
 }
 
 export function getModelDownloadInfo(id: LlmModelId): { downloaded: boolean; size: number } {
+  const info = getModelInfo(id);
   const file = getModelFile(id);
   const size = file.exists ? (file.size ?? 0) : 0;
-  const expectedSize = Math.floor(getModelInfo(id).sizeBytes * 0.99);
-  return { downloaded: file.exists && size >= expectedSize, size };
+  const expectedSize = Math.floor(info.sizeBytes * 0.99);
+
+  // Vision models are only usable when BOTH the text backbone and the mmproj
+  // vision encoder are on disk.
+  let mmprojOk = true;
+  let totalSize = size;
+  if (info.mmprojFilename && info.mmprojSizeBytes) {
+    const mmproj = getMmprojFile(id);
+    const mmprojSize = mmproj?.exists ? (mmproj.size ?? 0) : 0;
+    totalSize += mmprojSize;
+    mmprojOk = mmprojSize >= Math.floor(info.mmprojSizeBytes * 0.99);
+  }
+
+  return { downloaded: file.exists && size >= expectedSize && mmprojOk, size: totalSize };
 }
 
 const toNativePath = (uri: string): string =>
@@ -113,51 +159,72 @@ async function fetchRange(
     : new Error(`Failed to download chunk ${start}-${end}`);
 }
 
+/** Resolves the remote size of a file, preferring HEAD / a 0-byte Range probe. */
+async function resolveRemoteSize(url: string): Promise<number> {
+  try {
+    const head = await fetch(url, { method: 'HEAD' });
+    const len = Number(head.headers.get('content-length') ?? 0);
+    if (len > 0) return len;
+  } catch (error) {
+    // HEAD unsupported — fall through to a Range probe
+  }
+  try {
+    const probe = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+    const match = /bytes\s+0-0\/(\d+)/.exec(probe.headers.get('content-range') ?? '');
+    if (match) return Number(match[1]);
+  } catch (error) {
+    // range unsupported — caller falls back to a single request
+  }
+  return 0;
+}
+
+interface FileDownloadOptions {
+  url: string;
+  dest: File;
+  /** Known remote size (0 = unknown). */
+  totalHint?: number;
+  /** Expected size used to sanity-check when `totalHint` is unknown. */
+  expectedBytes?: number;
+  /** Total bytes already committed across this model download (for multi-file aggregate). */
+  baseBytes?: number;
+  /** Grand total across all files (for multi-file aggregate fraction). */
+  grandTotal?: number;
+  onProgress?: (fraction: number, bytes: number, total: number) => void;
+}
+
 /**
- * Downloads and caches a GGUF model (first-run only). Afterwards the model is
- * available fully offline, exactly like the ONNX disease model.
- *
- * The download is split into fixed-size byte ranges that are appended to the
- * target file. Each chunk is retried independently, so a dropped connection
- * (common on mobile networks when downloading hundreds of MB) resumes rather
- * than restarting from zero.
- *
- * NOTE: The app is not a strict single path — if the server reports no
- * Content-Length via HEAD, a single whole-body request is used as a fallback.
+ * Downloads one GGUF to `dest`, byte-range by byte-range, appending each chunk.
+ * Progress is reported against the whole model bundle (not just this file) when
+ * `grandTotal` is set, which is how the vision model reports a single progress
+ * bar across its backbone + mmproj files.
  */
-export async function downloadModel(
-  id: LlmModelId,
-  onProgress?: (fraction: number, bytes: number, total: number) => void,
-): Promise<void> {
-  const info = getModelInfo(id);
-  const dir = getModelDir();
+async function downloadOneFile(options: FileDownloadOptions): Promise<void> {
+  const {
+    url,
+    dest,
+    totalHint = 0,
+    expectedBytes = 0,
+    baseBytes = 0,
+    grandTotal = 0,
+    onProgress,
+  } = options;
+
+  const dir = dest.parentDirectory;
   if (!dir.exists) {
     dir.create({ idempotent: true, intermediates: true });
   }
 
-  const dest = getModelFile(id);
+  let total = totalHint > 0 ? totalHint : await resolveRemoteSize(url);
+  const expected = total > 0 ? total : expectedBytes;
 
-  let total = 0;
-  try {
-    const head = await fetch(info.url, { method: 'HEAD' });
-    total = Number(head.headers.get('content-length') || 0);
-  } catch (error) {
-    // HEAD unsupported — the chunked path below falls back to a single request
-  }
-  const expected = total > 0 ? total : info.sizeBytes;
-
-  if (dest.exists && dest.size >= expected) {
-    onProgress?.(1, dest.size, expected);
+  if (dest.exists && expected > 0 && (dest.size ?? 0) >= expected) {
+    const done = baseBytes + (dest.size ?? 0);
+    onProgress?.(grandTotal > 0 ? Math.min(1, done / grandTotal) : 1, done, grandTotal || expected);
     return;
   }
 
   if (dest.exists) {
-    try {
-      // clear any partial download
-      dest.delete();
-    } catch (error) {
-      // fall through — create with overwrite:true clears the file too
-    }
+    dest.delete();
   }
   dest.create({ intermediates: true, overwrite: true });
 
@@ -167,22 +234,28 @@ export async function downloadModel(
     if (total > 0) {
       while (offset < total) {
         const end = Math.min(offset + DL_CHUNK_BYTES - 1, total - 1);
-        const bytes = await fetchRange(info.url, offset, end);
+        const bytes = await fetchRange(url, offset, end);
         handle.offset = offset;
         handle.writeBytes(bytes);
         offset += bytes.byteLength;
-        onProgress?.(Math.min(1, offset / total), offset, total);
+        const done = baseBytes + offset;
+        onProgress?.(
+          grandTotal > 0 ? Math.min(1, done / grandTotal) : Math.min(1, offset / total),
+          done,
+          grandTotal || total,
+        );
       }
     } else {
-      const res = await fetch(info.url);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
       handle.writeBytes(bytes);
       offset = bytes.byteLength;
+      const done = baseBytes + offset;
       onProgress?.(
-        info.sizeBytes ? Math.min(1, offset / info.sizeBytes) : 1,
-        offset,
-        info.sizeBytes,
+        expected > 0 ? Math.min(1, done / (grandTotal || expected)) : 1,
+        done,
+        grandTotal || expected,
       );
     }
   } finally {
@@ -192,8 +265,64 @@ export async function downloadModel(
   if (expected > 0 && offset < expected) {
     throw new Error('Download incomplete');
   }
+}
 
-  onProgress?.(1, offset, expected);
+/**
+ * Downloads and caches a model (first-run only). Afterwards the model is
+ * available fully offline, exactly like the ONNX disease model.
+ *
+ * The download is split into fixed-size byte ranges that are appended to the
+ * target file. Each chunk is retried independently, so a dropped connection
+ * (common on mobile networks when downloading hundreds of MB) resumes rather
+ * than restarting from zero.
+ *
+ * Vision models download two files — the text backbone and the mmproj vision
+ * encoder (initMultimodal) — reported as one combined progress value.
+ */
+export async function downloadModel(
+  id: LlmModelId,
+  onProgress?: (fraction: number, bytes: number, total: number) => void,
+): Promise<void> {
+  const info = getModelInfo(id);
+
+  const files: { url: string; dest: File; totalHint: number; expectedBytes: number }[] = [
+    {
+      url: info.url,
+      dest: getModelFile(id),
+      totalHint: await resolveRemoteSize(info.url),
+      expectedBytes: info.sizeBytes,
+    },
+  ];
+  if (info.mmprojUrl && info.mmprojFilename) {
+    files.push({
+      url: info.mmprojUrl,
+      dest: getMmprojFile(id) as File,
+      totalHint: await resolveRemoteSize(info.mmprojUrl),
+      expectedBytes: info.mmprojSizeBytes ?? 0,
+    });
+  }
+
+  const grandTotal = files.reduce((sum, f) => sum + (f.totalHint || f.expectedBytes), 0);
+  let baseBytes = 0;
+
+  for (const fileSpec of files) {
+    await downloadOneFile({
+      ...fileSpec,
+      baseBytes,
+      grandTotal,
+      onProgress: (fraction, bytes, total) => onProgress?.(fraction, bytes, total),
+    });
+    baseBytes += fileSpec.dest.exists ? (fileSpec.dest.size ?? 0) : fileSpec.totalHint || 0;
+    onProgress?.(
+      grandTotal > 0 ? Math.min(1, baseBytes / grandTotal) : baseBytes,
+      baseBytes,
+      grandTotal,
+    );
+  }
+
+  if (grandTotal > 0 && baseBytes < grandTotal) {
+    throw new Error('Download incomplete');
+  }
 }
 
 export async function deleteModel(id: LlmModelId): Promise<void> {
@@ -204,6 +333,10 @@ export async function deleteModel(id: LlmModelId): Promise<void> {
   if (file.exists) {
     file.delete();
   }
+  const mmproj = getMmprojFile(id);
+  if (mmproj?.exists) {
+    mmproj.delete();
+  }
 }
 
 export function getDownloadedModelIds(): LlmModelId[] {
@@ -212,8 +345,8 @@ export function getDownloadedModelIds(): LlmModelId[] {
 
 export async function getSelectedModelId(): Promise<LlmModelId> {
   const stored = await getSetting(SETTING_MODEL);
-  if (stored && (stored === 'qwen2.5-0.5b' || stored === 'qwen2.5-1.5b')) {
-    return stored;
+  if (stored && LLM_MODELS.some((m) => m.id === stored)) {
+    return stored as LlmModelId;
   }
   return DEFAULT_MODEL_ID;
 }
@@ -248,6 +381,8 @@ async function getContext(modelId: LlmModelId): Promise<LlamaContext> {
   const modelPath = toNativePath(getModelFile(modelId).uri);
 
   // CPU only: the Android emulator has no usable GPU; also keeps x86_64 builds fast.
+  // Vision models must run with context shifting disabled (media positions rely
+  // on a stable KV cache), and get a bigger context for image tokens.
   context = await initLlama(
     {
       model: modelPath,
@@ -261,6 +396,22 @@ async function getContext(modelId: LlmModelId): Promise<LlamaContext> {
       // progress callback for model load (per-token evaluation starts after load)
     },
   );
+
+  // Attach the vision encoder for multimodal models so chat messages can carry
+  // images. use_gpu is false (CPU) to match the rest of the pipeline.
+  if (info.vision && info.mmprojFilename) {
+    const mmproj = getMmprojFile(modelId);
+    if (mmproj?.exists) {
+      const ok = await context.initMultimodal({ path: toNativePath(mmproj.uri), use_gpu: false });
+      if (!ok) {
+        await context.release().catch(() => {});
+        context = null;
+        contextModelId = null;
+        throw new Error(`Failed to enable vision support for ${info.label}.`);
+      }
+    }
+  }
+
   contextModelId = modelId;
   return context;
 }
@@ -284,8 +435,15 @@ export async function releaseContext(): Promise<void> {
 
 export type ChatRole = 'system' | 'user' | 'assistant';
 
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+  /** When set, the message is sent as a multimodal text+image payload. */
+  imageUri?: string | null;
+}
+
 export interface OfflineChatOptions {
-  messages: { role: ChatRole; content: string }[];
+  messages: ChatMessage[];
   modelId: LlmModelId | null;
   onToken?: (partial: string, accumulated: string) => void;
   signal?: AbortSignal;
@@ -296,6 +454,22 @@ const FILTERED = new Set(['<|im_end|>', '<|im_start|>', '<|endoftext|>', '<s>', 
 function cleanToken(token: string): string {
   if (FILTERED.has(token.trim())) return '';
   return token;
+}
+
+/** Converts our chat messages to the connector format, embedding images. */
+function toLlamaMessages(messages: ChatMessage[]) {
+  return messages.map((m) => {
+    if (m.imageUri) {
+      return {
+        role: m.role,
+        content: [
+          { type: 'text', text: m.content || 'What do you see in this image?' },
+          { type: 'image_url', image_url: { url: m.imageUri } },
+        ],
+      };
+    }
+    return { role: m.role, content: m.content };
+  });
 }
 
 /**
@@ -310,6 +484,13 @@ export async function streamChatMessage({
 }: OfflineChatOptions): Promise<string> {
   if (!modelId || !isModelDownloaded(modelId)) {
     throw new Error('AI model not downloaded yet. Download it from the Profile screen.');
+  }
+
+  const hasImage = messages.some((m) => !!m.imageUri);
+  if (hasImage && !modelSupportsVision(modelId)) {
+    throw new Error(
+      'This model is text-only. Download the Qwen 2.5-VL 3B vision model to send photos.',
+    );
   }
 
   if (signal?.aborted) {
@@ -327,7 +508,7 @@ export async function streamChatMessage({
     let accumulated = '';
     const result = await ctx.completion(
       {
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: toLlamaMessages(messages),
         n_predict: 512,
         temperature: 0.7,
         top_p: 0.9,
@@ -354,6 +535,69 @@ export async function streamChatMessage({
     if (signal) {
       signal.removeEventListener('abort', abort);
     }
+  }
+}
+
+const cleanTitle = (raw: string): string => {
+  const cleaned = raw
+    .replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[:.]+$/, '')
+    .trim();
+  return cleaned.slice(0, 40) || 'New chat';
+};
+
+/**
+ * Generates a short, precise title for a conversation using the on-device LLM.
+ * Returns an empty string when nothing sensible could be produced (e.g. the
+ * model is not ready), so callers can fall back to their own default.
+ */
+export async function suggestChatTitle(
+  messages: ChatMessage[],
+  modelId: LlmModelId | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!modelId || !isModelDownloaded(modelId) || signal?.aborted) {
+    return '';
+  }
+
+  const transcript = messages
+    .slice(-6)
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .join('\n');
+
+  try {
+    const ctx = await getContext(modelId);
+    let title = '';
+    await ctx.completion(
+      {
+        messages: [
+          { role: 'system', content: AGRI_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content:
+              'Write ONE very short chat title (maximum 6 words) that summarizes this conversation. Reply with ONLY the title, no quotes, no punctuation.\n\n' +
+              transcript,
+          },
+        ],
+        n_predict: 24,
+        temperature: 0.3,
+        top_p: 0.9,
+        top_k: 20,
+        penalty_repeat: 1.2,
+        enable_thinking: false,
+        reasoning_format: 'none',
+      },
+      (data: TokenData) => {
+        const next = cleanToken(data.token ?? '');
+        if (next) title += next;
+      },
+    );
+    return cleanTitle(title);
+  } catch (error) {
+    if (signal?.aborted) return '';
+    console.warn('Title suggestion failed:', error);
+    return '';
   }
 }
 

@@ -144,14 +144,18 @@ export default function ProfileScreen() {
   };
 
   const handleDownload = async (id: LlmModelId) => {
-    const fileSize = getModelDownloadInfo(id).downloaded;
+    const info = getModelInfo(id);
+    const dlInfo = getModelDownloadInfo(id);
+    const parts = [fmtBytes(info.sizeBytes || 0)];
+    if (info.mmprojSizeBytes) {
+      parts.push(`+ ${fmtBytes(info.mmprojSizeBytes)} vision module`);
+    }
+    const bytesText = parts.join(' · ');
     const proceed = await new Promise<boolean>((resolve) => {
       Alert.alert(
-        'Download model',
-        `Download ${id === 'qwen2.5-1.5b' ? 'Qwen 2.5 1.5B' : 'Qwen 2.5 0.5B'} (${id === 'qwen2.5-1.5b' ? '~1 GB' : '~0.5 GB'})? ` +
-          (fileSize
-            ? 'A copy already exists and will be replaced.'
-            : 'Needs internet once — then it works fully offline.'),
+        'Download AI model',
+        `Download ${info.label} (${bytesText})? Needs internet once — then it works fully offline.` +
+          (dlInfo.downloaded ? '\n\nA copy already exists and will be replaced.' : ''),
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Download', onPress: () => resolve(true) },
@@ -160,7 +164,6 @@ export default function ProfileScreen() {
     });
     if (!proceed) return;
 
-    const info = getModelInfo(id);
     const online = await checkOnline(info.url);
     if (!online) {
       Alert.alert('Connection error', 'Could not connect to the internet');
@@ -314,7 +317,15 @@ export default function ProfileScreen() {
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
-                  <Text className="text-base font-semibold text-gray-800">{model.label}</Text>
+                  <View className="flex-row items-center">
+                    <Text className="text-base font-semibold text-gray-800">{model.label}</Text>
+                    {model.vision && (
+                      <View className="ml-2 flex-row items-center rounded-full bg-violet-100 px-2 py-0.5">
+                        <Ionicons name="eye-outline" size={10} color="#7c3aed" />
+                        <Text className="text-xs font-semibold text-violet-700 ml-0.5">Vision</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text className="text-xs text-gray-500">{model.description}</Text>
                 </View>
                 {isSelected && (
@@ -350,7 +361,10 @@ export default function ProfileScreen() {
 
               {!isDownloading && !info.downloaded && (
                 <Text className="text-xs text-gray-400 mt-2">
-                  Not downloaded · {model.approxSize}
+                  Not downloaded ·{' '}
+                  {model.vision && model.mmprojSizeBytes
+                    ? `${Math.round((model.sizeBytes + model.mmprojSizeBytes) / 1024 / 1024)} MB across 2 files`
+                    : model.approxSize}
                 </Text>
               )}
 
