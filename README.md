@@ -10,6 +10,8 @@
 
 ---
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/abhinab-choudhury/Crop-AI)
+
 ## 🚀 Live Demo
 
 👉 https://crop-ai-one.vercel.app/

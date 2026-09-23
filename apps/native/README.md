@@ -96,3 +96,4 @@ apps/native/android/app/build/outputs/apk/release/app-release.apk
 ## 📸 Screenshots
 
 _Add screenshots of your app here for better documentation._
+
