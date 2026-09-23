@@ -53,7 +53,7 @@
       },
       "package": "com.cropai.app",
       "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "resize"
     }
   }
 }
