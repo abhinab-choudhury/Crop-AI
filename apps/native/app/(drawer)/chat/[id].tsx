@@ -4,20 +4,29 @@ import {
   KeyboardAvoidingView,
   Platform,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from '@react-navigation/elements';
 import botIcon from '@/assets/bot.png';
-import { AGRI_SYSTEM_PROMPT, getReadyModelId, streamChatMessage, type LlmModelId } from '@/lib/llm';
+import {
+  AGRI_SYSTEM_PROMPT,
+  getReadyModelId,
+  modelSupportsVision,
+  streamChatMessage,
+  suggestChatTitle,
+  type LlmModelId,
+  type ChatRole,
+} from '@/lib/llm';
 import { addMessage, getMessages, getThread, updateThreadTitle, type MessageRow } from '@/lib/db';
 import { RenameThreadModal } from '@/components/rename-thread-modal';
+import { ChatInput } from '@/components/chat-input';
 
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,6 +38,7 @@ export default function ThreadScreen() {
 
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [text, setText] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [streaming, setStreaming] = useState('');
   const [modelId, setModelId] = useState<LlmModelId | null>(null);
@@ -36,22 +46,44 @@ export default function ThreadScreen() {
   const [title, setTitle] = useState('Chat');
   const [renameVisible, setRenameVisible] = useState(false);
 
+  const canUseImages = modelId ? modelSupportsVision(modelId) : false;
+
   useEffect(() => {
     navigation.setOptions({
       headerTitle: () => (
-        <Text className="max-w-[220px] font-poppinsMedium text-xl text-gray-900" numberOfLines={1}>
-          {title}
-        </Text>
-      ),
-      headerRight: () => (
         <TouchableOpacity
           onPress={() => setRenameVisible(true)}
-          hitSlop={10}
-          style={{ marginRight: 16 }}
+          activeOpacity={0.7}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            maxWidth: 240,
+            borderWidth: 1,
+            borderColor: '#ccfbf1',
+            backgroundColor: '#f0fdfa',
+            borderRadius: 999,
+            paddingVertical: 5,
+            paddingLeft: 14,
+            paddingRight: 10,
+          }}
         >
-          <Ionicons name="pencil" size={18} color="#0f766e" />
+          <Text
+            style={{
+              fontSize: 18,
+              lineHeight: 22,
+              fontWeight: '600',
+              color: '#111827',
+              flexShrink: 1,
+              marginRight: 8,
+            }}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Ionicons name="create-outline" size={16} color="#0f766e" />
         </TouchableOpacity>
       ),
+      headerRight: undefined,
     });
   }, [navigation, title]);
 
@@ -61,6 +93,11 @@ export default function ThreadScreen() {
     setTitle(next);
     setRenameVisible(false);
   };
+
+  const suggestCurrentTitle = useCallback(async (): Promise<string> => {
+    if (!modelId || isThinking) return '';
+    return suggestChatTitle(messages, modelId);
+  }, [modelId, isThinking, messages]);
 
   useEffect(() => {
     getReadyModelId().then(setModelId);
@@ -82,7 +119,7 @@ export default function ThreadScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
 
   const streamReply = useCallback(
-    async (history: MessageRow[], query: string) => {
+    async (history: MessageRow[], query: string, attachedImage: string | null) => {
       let accumulated = '';
       const controller = new AbortController();
       abortRef.current = controller;
@@ -91,8 +128,12 @@ export default function ThreadScreen() {
         await streamChatMessage({
           messages: [
             { role: 'system', content: AGRI_SYSTEM_PROMPT },
-            ...history.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-            { role: 'user', content: query },
+            ...history.slice(-10).map((m) => ({
+              role: m.role as ChatRole,
+              content: m.content,
+              imageUri: m.role === 'user' ? (m.imageUri ?? null) : null,
+            })),
+            { role: 'user', content: query, imageUri: attachedImage },
           ],
           modelId,
           signal: controller.signal,
@@ -110,9 +151,31 @@ export default function ThreadScreen() {
               thread_id: id,
               role: 'assistant',
               content: accumulated,
+              imageUri: null,
               created_at: Date.now(),
             },
           ]);
+
+          // Untitled threads get a short, precise on-device AI name once the
+          // first reply lands.
+          if (title === 'New chat' && !attachedImage) {
+            suggestChatTitle(
+              [
+                { role: 'system', content: AGRI_SYSTEM_PROMPT },
+                ...history.slice(-6).map((m) => ({
+                  role: m.role as ChatRole,
+                  content: m.content,
+                  imageUri: m.imageUri ?? null,
+                })),
+                { role: 'user', content: query, imageUri: attachedImage },
+              ],
+              modelId,
+            ).then((suggested) => {
+              if (!suggested.trim() || !id) return;
+              setTitle(suggested);
+              updateThreadTitle(id, suggested);
+            });
+          }
         }
         setStreaming('');
         setIsThinking(false);
@@ -124,8 +187,11 @@ export default function ThreadScreen() {
           setStreaming('');
           setIsThinking(false);
           if (id) {
-            const errorMsg =
-              '❌ The AI model is not available yet. Open Profile → AI Models and make sure a model is downloaded.';
+            const errorMsg = (
+              error instanceof Error && error.message.includes('vision')
+                ? '❌ To send photos, download the Qwen 2.5-VL 3B vision model from Profile → AI Models.'
+                : '❌ The AI model is not available yet. Open Profile → AI Models and make sure a model is downloaded.'
+            ) as string;
             await addMessage(id, 'assistant', errorMsg);
             setMessages((prev) => [
               ...prev,
@@ -134,6 +200,7 @@ export default function ThreadScreen() {
                 thread_id: id,
                 role: 'assistant',
                 content: errorMsg,
+                imageUri: null,
                 created_at: Date.now(),
               },
             ]);
@@ -144,14 +211,15 @@ export default function ThreadScreen() {
         setIsThinking(false);
       }
     },
-    [id, modelId],
+    [id, modelId, title],
   );
 
-  const sendMessage = async (raw: string) => {
+  const sendMessage = async (raw: string, attachedImage: string | null = null) => {
     const query = raw.trim();
-    if (!query || isThinking || streaming || !modelId || !id) return;
+    if ((!query && !attachedImage) || isThinking || streaming || !modelId || !id) return;
 
     setText('');
+    setImageUri(null);
     setStreaming('');
     setIsThinking(true);
     scrollToEnd();
@@ -161,24 +229,34 @@ export default function ThreadScreen() {
       thread_id: id,
       role: 'user',
       content: query,
+      imageUri: attachedImage,
       created_at: Date.now(),
     };
     const nextHistory = [...messages, userMsg];
     setMessages(nextHistory);
-    await addMessage(id, 'user', query);
+    await addMessage(id, 'user', query, attachedImage);
 
-    await streamReply(nextHistory.slice(0, -1), query);
+    await streamReply(nextHistory.slice(0, -1), query, attachedImage);
     scrollToEnd();
   };
 
-  const displayMessages = streaming
+  const handleDisabledImagePress = () => {
+    Alert.alert(
+      'Photos need the vision model',
+      'Your current model is text-only. Download Qwen 2.5-VL 3B from Profile → AI Models to attach and understand photos.',
+      [{ text: 'Open Profile', onPress: () => router.push('/(drawer)/profile') }, { text: 'OK' }],
+    );
+  };
+
+  const displayMessages: MessageRow[] = streaming
     ? [
         ...messages,
         {
           id: -2,
           thread_id: id ?? '',
-          role: 'assistant' as const,
+          role: 'assistant',
           content: streaming,
+          imageUri: null,
           created_at: Date.now(),
         },
       ]
@@ -212,7 +290,22 @@ export default function ThreadScreen() {
             maxWidth: '78%',
           }}
         >
-          <Text style={{ color: isUser ? '#fff' : '#004D40', fontSize: 16 }}>{item.content}</Text>
+          {item.imageUri && (
+            <Image
+              source={{ uri: item.imageUri }}
+              style={{
+                width: 200,
+                height: 200,
+                borderRadius: 12,
+                marginBottom: item.content ? 8 : 0,
+                backgroundColor: 'rgba(0,0,0,0.05)',
+              }}
+              resizeMode="cover"
+            />
+          )}
+          {item.content.length > 0 && (
+            <Text style={{ color: isUser ? '#fff' : '#004D40', fontSize: 16 }}>{item.content}</Text>
+          )}
         </View>
         {isGenerating && (
           <ActivityIndicator
@@ -225,13 +318,15 @@ export default function ThreadScreen() {
     );
   };
 
+  const showModelBanner = loaded && !modelId && !isThinking;
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: '#fff' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={headerHeight + (!modelId && !isThinking ? 40 : 0)}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={headerHeight + (showModelBanner ? 40 : 0)}
     >
-      {!modelId && !isThinking && (
+      {showModelBanner && (
         <TouchableOpacity
           onPress={() => router.push('/(drawer)/profile')}
           className="mx-3 mt-2 flex-row items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2"
@@ -255,6 +350,8 @@ export default function ThreadScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ padding: 15 }}
           style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           onContentSizeChange={scrollToEnd}
           onLayout={scrollToEnd}
           ListEmptyComponent={
@@ -273,60 +370,25 @@ export default function ThreadScreen() {
         </View>
       )}
 
-      <View
-        style={{
-          padding: 12,
-          backgroundColor: '#ffffff',
-          paddingBottom: Math.max(insets.bottom, 12),
-        }}
-      >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#f1f3f5',
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            borderRadius: 30,
-          }}
-        >
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Message Crop AI…"
-            placeholderTextColor="#9ca3af"
-            editable={!isThinking}
-            style={{
-              flex: 1,
-              fontSize: 16,
-              paddingVertical: 6,
-              paddingHorizontal: 4,
-              color: '#333',
-            }}
-          />
-          <TouchableOpacity
-            onPress={() => sendMessage(text)}
-            disabled={!text.trim() || isThinking || !modelId}
-            style={{
-              padding: 10,
-              borderRadius: 50,
-              backgroundColor: text.trim() && !isThinking && modelId ? '#16a34a' : '#d1d5db',
-            }}
-          >
-            <Ionicons
-              name="send"
-              size={18}
-              color={text.trim() && !isThinking && modelId ? '#fff' : '#6b7280'}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ChatInput
+        value={text}
+        onChangeText={setText}
+        imageUri={imageUri}
+        onChangeImage={setImageUri}
+        onSend={() => sendMessage(text, imageUri)}
+        canSend={!!modelId}
+        busy={isThinking}
+        canUseImages={canUseImages}
+        onDisabledImagePress={handleDisabledImagePress}
+      />
 
       <RenameThreadModal
         visible={renameVisible}
         initialTitle={title}
         onCancel={() => setRenameVisible(false)}
         onSave={saveTitle}
+        onSuggest={suggestCurrentTitle}
+        canSuggest={!isThinking}
       />
     </KeyboardAvoidingView>
   );
