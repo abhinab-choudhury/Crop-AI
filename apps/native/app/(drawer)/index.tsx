@@ -6,7 +6,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
   Image,
   Alert,
 } from 'react-native';
@@ -29,6 +28,7 @@ import {
 import { createThread, addMessage, getThread, updateThreadTitle } from '@/lib/db';
 import { RenameThreadModal } from '@/components/rename-thread-modal';
 import { ChatInput } from '@/components/chat-input';
+import { MessageBubble } from '@/components/message-bubble';
 import { onNewChat } from '@/lib/chat-session';
 
 type Message = {
@@ -296,12 +296,13 @@ export default function ChatScreen() {
     );
   };
 
-  const displayMessages: Message[] = streaming
+  // While a reply is in flight we always append a placeholder assistant bubble:
+  // it shows a typing indicator while the model loads, then fills with the
+  // streamed tokens once generation actually starts.
+  const displayMessages: Message[] = isThinking
     ? [...messages, { id: 'streaming', role: 'assistant', content: streaming }]
     : messages;
-  const generatingId = displayMessages.length
-    ? displayMessages[displayMessages.length - 1].id
-    : null;
+  const generatingId = isThinking ? 'streaming' : null;
 
   const renderItem = ({ item }: { item: Message }) => {
     const isUser = item.role === 'user';
@@ -320,38 +321,12 @@ export default function ChatScreen() {
             style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }}
           />
         )}
-        <View
-          style={{
-            backgroundColor: isUser ? '#20C997' : '#E6F7F5',
-            padding: 12,
-            borderRadius: 16,
-            maxWidth: '78%',
-          }}
-        >
-          {item.imageUri && (
-            <Image
-              source={{ uri: item.imageUri }}
-              style={{
-                width: 200,
-                height: 200,
-                borderRadius: 12,
-                marginBottom: item.content ? 8 : 0,
-                backgroundColor: 'rgba(0,0,0,0.05)',
-              }}
-              resizeMode="cover"
-            />
-          )}
-          {item.content.length > 0 && (
-            <Text style={{ color: isUser ? '#fff' : '#004D40', fontSize: 16 }}>{item.content}</Text>
-          )}
-        </View>
-        {isGenerating && (
-          <ActivityIndicator
-            size="small"
-            color="#20C997"
-            style={{ marginLeft: 8, marginTop: 14 }}
-          />
-        )}
+        <MessageBubble
+          role={item.role}
+          content={item.content}
+          imageUri={item.imageUri}
+          isGenerating={isGenerating}
+        />
       </View>
     );
   };
@@ -417,10 +392,14 @@ export default function ChatScreen() {
         }
       />
 
-      {isThinking && streaming.length > 0 && (
+      {isThinking && (
         <View style={{ flexDirection: 'row', paddingLeft: 15, paddingBottom: 4 }}>
           <Text style={{ color: '#20C997', fontSize: 13 }}>
-            {modelId ? `Streaming from ${getModelInfo(modelId).label}` : 'Streaming…'}
+            {streaming.length > 0
+              ? modelId
+                ? `Streaming from ${getModelInfo(modelId).label}`
+                : 'Streaming…'
+              : 'Thinking…'}
           </Text>
         </View>
       )}

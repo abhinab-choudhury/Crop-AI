@@ -27,6 +27,11 @@ import {
 import { addMessage, getMessages, getThread, updateThreadTitle, type MessageRow } from '@/lib/db';
 import { RenameThreadModal } from '@/components/rename-thread-modal';
 import { ChatInput } from '@/components/chat-input';
+import { MessageBubble } from '@/components/message-bubble';
+
+// Transient id for the in-flight reply bubble so it never collides with
+// persisted message ids (which are positive, or optimistic -1/-2).
+const STREAMING_PLACEHOLDER_ID = -999;
 
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -248,11 +253,14 @@ export default function ThreadScreen() {
     );
   };
 
-  const displayMessages: MessageRow[] = streaming
+  // While a reply is in flight we always append a placeholder assistant bubble:
+  // it shows a typing indicator while the model loads, then fills with the
+  // streamed tokens once generation actually starts.
+  const displayMessages: MessageRow[] = isThinking
     ? [
         ...messages,
         {
-          id: -2,
+          id: STREAMING_PLACEHOLDER_ID,
           thread_id: id ?? '',
           role: 'assistant',
           content: streaming,
@@ -261,9 +269,7 @@ export default function ThreadScreen() {
         },
       ]
     : messages;
-  const generatingId = displayMessages.length
-    ? displayMessages[displayMessages.length - 1].id
-    : null;
+  const generatingId = isThinking ? STREAMING_PLACEHOLDER_ID : null;
 
   const renderItem = ({ item }: { item: MessageRow }) => {
     const isUser = item.role === 'user';
@@ -282,38 +288,12 @@ export default function ThreadScreen() {
             style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }}
           />
         )}
-        <View
-          style={{
-            backgroundColor: isUser ? '#20C997' : '#E6F7F5',
-            padding: 12,
-            borderRadius: 16,
-            maxWidth: '78%',
-          }}
-        >
-          {item.imageUri && (
-            <Image
-              source={{ uri: item.imageUri }}
-              style={{
-                width: 200,
-                height: 200,
-                borderRadius: 12,
-                marginBottom: item.content ? 8 : 0,
-                backgroundColor: 'rgba(0,0,0,0.05)',
-              }}
-              resizeMode="cover"
-            />
-          )}
-          {item.content.length > 0 && (
-            <Text style={{ color: isUser ? '#fff' : '#004D40', fontSize: 16 }}>{item.content}</Text>
-          )}
-        </View>
-        {isGenerating && (
-          <ActivityIndicator
-            size="small"
-            color="#20C997"
-            style={{ marginLeft: 8, marginTop: 14 }}
-          />
-        )}
+        <MessageBubble
+          role={item.role}
+          content={item.content}
+          imageUri={item.imageUri}
+          isGenerating={isGenerating}
+        />
       </View>
     );
   };
@@ -364,9 +344,11 @@ export default function ThreadScreen() {
         />
       )}
 
-      {isThinking && streaming.length > 0 && (
+      {isThinking && (
         <View style={{ flexDirection: 'row', paddingLeft: 15, paddingBottom: 4 }}>
-          <Text style={{ color: '#20C997', fontSize: 13 }}>Streaming…</Text>
+          <Text style={{ color: '#20C997', fontSize: 13 }}>
+            {streaming.length > 0 ? 'Streaming…' : 'Thinking…'}
+          </Text>
         </View>
       )}
 
