@@ -16,6 +16,8 @@ export interface MessageRow {
   role: 'user' | 'assistant';
   content: string;
   created_at: number;
+  /** Local file URI of an image attached to this message, if any. */
+  imageUri: string | null;
 }
 
 export type ProfileKey =
@@ -42,6 +44,7 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           thread_id TEXT NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
           role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
           content TEXT NOT NULL,
+          image_uri TEXT,
           created_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id, id);
@@ -50,6 +53,11 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           value TEXT NOT NULL
         );
       `);
+      // Migration: older installs created `messages` without image_uri.
+      const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(messages)');
+      if (!cols.some((c) => c.name === 'image_uri')) {
+        await db.execAsync('ALTER TABLE messages ADD COLUMN image_uri TEXT');
+      }
       return db;
     });
   }
@@ -102,24 +110,33 @@ export async function getThread(threadId: string): Promise<ThreadRow | null> {
 export async function getMessages(threadId: string): Promise<MessageRow[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(
-    'SELECT id, thread_id, role, content, created_at FROM messages WHERE thread_id = ? ORDER BY id ASC',
+    'SELECT id, thread_id, role, content, image_uri, created_at FROM messages WHERE thread_id = ? ORDER BY id ASC',
     threadId,
   );
-  return rows as unknown as MessageRow[];
+  return rows.map((r) => ({
+    id: r.id as number,
+    thread_id: r.thread_id as string,
+    role: r.role as MessageRow['role'],
+    content: r.content as string,
+    imageUri: (r.image_uri as string | null) ?? null,
+    created_at: r.created_at as number,
+  }));
 }
 
 export async function addMessage(
   threadId: string,
   role: 'user' | 'assistant',
   content: string,
+  imageUri?: string | null,
 ): Promise<number> {
   const db = await getDb();
   const now = Date.now();
   const result = await db.runAsync(
-    'INSERT INTO messages (thread_id, role, content, created_at) VALUES (?, ?, ?, ?)',
+    'INSERT INTO messages (thread_id, role, content, image_uri, created_at) VALUES (?, ?, ?, ?, ?)',
     threadId,
     role,
     content,
+    imageUri ?? null,
     now,
   );
   await db.runAsync('UPDATE threads SET updated_at = ? WHERE id = ?', now, threadId);
