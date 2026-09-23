@@ -62,11 +62,41 @@ const getModelDir = (): Directory => new Directory(Paths.document.uri, 'models')
 
 const getModelFile = (): File => new File(Paths.document.uri, 'models', MODEL_FILENAME);
 
+/** Downloads land in a `.part` file first — a half-downloaded `.onnx` is never
+ *  mistaken for a cached model. The `.part` file is renamed to the real name
+ *  only once every byte is on disk. */
+const getPartFile = (): File => new File(Paths.document.uri, 'models', `${MODEL_FILENAME}.part`);
+
 const toNativePath = (uri: string): string =>
   uri.startsWith('file://') ? uri.slice('file://'.length) : uri;
 
+// Chunked transfer: a dropped connection only re-sends the last 8 MiB chunk
+// instead of restarting the whole model from zero.
+const DL_CHUNK_BYTES = 8 * 1024 * 1024;
+const DL_MAX_ATTEMPTS = 3;
+const DL_RETRY_BASE_MS = 600;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function isModelCached(): boolean {
   return getModelFile().exists;
+}
+
+/** Size of an in-progress `.part` download, or null if none exists. Lets the UI
+ *  tell the user a previous download will be resumed. */
+export function getPartialDownload(): { size: number } | null {
+  const part = getPartFile();
+  return part.exists && (part.size ?? 0) > 0 ? { size: part.size ?? 0 } : null;
+}
+
+let cachedRemoteSize = 0;
+
+/** Resolves and caches the remote model size (used to show "~X MB" upfront). */
+export async function getRemoteModelSize(): Promise<number> {
+  if (cachedRemoteSize <= 0) {
+    cachedRemoteSize = await resolveRemoteSize(MODEL_URL);
+  }
+  return cachedRemoteSize;
 }
 
 export function getModelInfo(): { downloaded: boolean; size: number } {
@@ -74,12 +104,71 @@ export function getModelInfo(): { downloaded: boolean; size: number } {
   return { downloaded: file.exists, size: file.exists ? (file.size ?? 0) : 0 };
 }
 
+/** Resolves the remote size of the model, preferring HEAD / a 0-byte Range probe. */
+async function resolveRemoteSize(url: string): Promise<number> {
+  try {
+    const head = await fetch(url, { method: 'HEAD' });
+    const len = Number(head.headers.get('content-length') ?? 0);
+    if (len > 0) return len;
+  } catch (error) {
+    // HEAD unsupported — fall through to a Range probe
+  }
+  try {
+    const probe = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+    const match = /bytes\s+0-0\/(\d+)/.exec(probe.headers.get('content-range') ?? '');
+    if (match) return Number(match[1]);
+  } catch (error) {
+    // Range unsupported — the caller falls back to a single request
+  }
+  return 0;
+}
+
 /**
- * Downloads and caches the ONNX model (first-run only). After this completes the
- * model is available offline forever.
+ * Fetches one byte range, retrying with exponential backoff. Passes the abort
+ * signal through so cancelling the download aborts any in-flight request too.
+ */
+async function fetchRange(
+  url: string,
+  start: number,
+  end: number,
+  signal?: AbortSignal,
+  attempts: number = DL_MAX_ATTEMPTS,
+): Promise<Uint8Array> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (signal?.aborted) throw new Error('aborted');
+    try {
+      const res = await fetch(url, {
+        headers: { Range: `bytes=${start}-${end}` },
+        signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (res.status === 206) return bytes;
+      throw new Error(`Server ignored Range request (HTTP ${res.status})`);
+    } catch (error) {
+      const aborted = signal?.aborted || (error instanceof Error && error.name === 'AbortError');
+      if (aborted) throw new Error('aborted');
+      lastError = error;
+      if (attempt < attempts - 1) {
+        await sleep(DL_RETRY_BASE_MS * 2 ** attempt);
+      }
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Failed to download chunk ${start}-${end}`);
+}
+
+/**
+ * Downloads and caches the ONNX model to a `.part` file, then atomically
+ * renames it into place. Accurate progress is reported because every downloaded
+ * byte is counted, and interrupted downloads resume from the partial file on
+ * the next attempt instead of starting over. Pass an AbortSignal to cancel.
  */
 export async function downloadModel(
   onProgress?: (fraction: number, bytes: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const dir = getModelDir();
   if (!dir.exists) {
@@ -87,38 +176,69 @@ export async function downloadModel(
   }
 
   const dest = getModelFile();
+  if (dest.exists) return;
+
+  const total = await resolveRemoteSize(MODEL_URL);
+
+  // Resume from an existing partial download when it is consistent (<= total).
+  const part = getPartFile();
+  let offset = 0;
+  if (part.exists) {
+    const existing = part.size ?? 0;
+    if (existing > 0 && (total === 0 || existing <= total)) {
+      offset = existing;
+    }
+  }
+  if (offset === 0) {
+    part.delete();
+  }
+  part.create({ intermediates: true, overwrite: true });
+
+  const handle = part.open();
+  let wrote = offset;
+  try {
+    handle.offset = offset;
+    if (total > 0) {
+      while (wrote < total) {
+        if (signal?.aborted) throw new Error('aborted');
+        const end = Math.min(wrote + DL_CHUNK_BYTES - 1, total - 1);
+        const bytes = await fetchRange(MODEL_URL, wrote, end, signal);
+        handle.writeBytes(bytes);
+        wrote += bytes.byteLength;
+        onProgress?.(Math.min(1, wrote / total), wrote, total);
+      }
+    } else {
+      if (signal?.aborted) throw new Error('aborted');
+      const res = await fetch(MODEL_URL, { signal });
+      if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      handle.writeBytes(bytes);
+      wrote += bytes.byteLength;
+      onProgress?.(1, wrote, wrote);
+    }
+  } finally {
+    handle.close();
+  }
+
+  if (total > 0 && wrote < total) {
+    throw new Error('Download incomplete');
+  }
+
+  // Atomic finalize: only now does a fully downloaded model replace the cache.
   if (dest.exists) {
     dest.delete();
   }
-
-  let total = 0;
-  try {
-    const head = await fetch(MODEL_URL, { method: 'HEAD' });
-    total = Number(head.headers.get('content-length') || 0);
-  } catch (error) {
-    // HEAD unsupported — progress will be indeterminate
-  }
-
-  const downloadPromise = File.downloadFileAsync(MODEL_URL, dest, { idempotent: true });
-
-  const poll = setInterval(() => {
-    const size = dest.size ?? 0;
-    onProgress?.(total ? Math.min(1, size / total) : 0, size, total);
-  }, 300);
-
-  try {
-    await downloadPromise;
-  } finally {
-    clearInterval(poll);
-    const size = dest.size ?? total;
-    onProgress?.(total ? Math.min(1, size / total) : 1, size, total);
-  }
+  part.move(dest);
 }
 
 export function removeModel(): void {
   const file = getModelFile();
   if (file.exists) {
     file.delete();
+  }
+  const part = getPartFile();
+  if (part.exists) {
+    part.delete();
   }
 }
 
