@@ -6,14 +6,12 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
-  Image,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from '@react-navigation/elements';
-import botIcon from '@/assets/bot.png';
 import {
   AGRI_SYSTEM_PROMPT,
   getChatLanguage,
@@ -51,6 +49,11 @@ export default function ThreadScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [streaming, setStreaming] = useState('');
+  const [replyStats, setReplyStats] = useState<{
+    seconds: number;
+    tokensPerSec: number;
+    tokenCount: number;
+  } | null>(null);
   const [modelId, setModelId] = useState<LlmModelId | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [language, setLanguage] = useState<ChatLanguage>('english');
@@ -141,6 +144,8 @@ export default function ThreadScreen() {
   const streamReply = useCallback(
     async (history: MessageRow[], query: string, attachedImage: string | null) => {
       let accumulated = '';
+      const startedAt = Date.now();
+      let tokenCount = 0;
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -159,6 +164,7 @@ export default function ThreadScreen() {
           language,
           signal: controller.signal,
           onToken: (_tok, acc) => {
+            tokenCount += 1;
             accumulated = acc;
             setStreaming(acc);
           },
@@ -199,6 +205,12 @@ export default function ThreadScreen() {
           }
         }
         setStreaming('');
+        const elapsed = (Date.now() - startedAt) / 1000;
+        setReplyStats({
+          seconds: elapsed,
+          tokenCount,
+          tokensPerSec: elapsed > 0 ? tokenCount / elapsed : 0,
+        });
         setIsThinking(false);
       } catch (error) {
         const aborted =
@@ -253,6 +265,7 @@ export default function ThreadScreen() {
     setText('');
     setImageUri(null);
     setStreaming('');
+    setReplyStats(null);
     setIsThinking(true);
     scrollToEnd();
 
@@ -302,19 +315,7 @@ export default function ThreadScreen() {
     const isUser = item.role === 'user';
     const isGenerating = isThinking && !isUser && item.id === generatingId;
     return (
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: isUser ? 'flex-end' : 'flex-start',
-          marginVertical: 6,
-        }}
-      >
-        {!isUser && (
-          <Image
-            source={botIcon}
-            style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }}
-          />
-        )}
+      <View style={{ marginVertical: 6 }}>
         <MessageBubble
           role={item.role}
           content={item.content}
@@ -371,10 +372,16 @@ export default function ThreadScreen() {
         />
       )}
 
-      {isThinking && (
+      {(isThinking || replyStats) && (
         <View style={{ flexDirection: 'row', paddingLeft: 15, paddingBottom: 4 }}>
           <Text style={{ color: '#20C997', fontSize: 13 }}>
-            {streaming.length > 0 ? 'Streaming…' : 'Thinking…'}
+            {isThinking
+              ? streaming.length > 0
+                ? 'Streaming…'
+                : 'Thinking…'
+              : replyStats
+                ? `✓ ${replyStats.seconds.toFixed(1)}s · ${replyStats.tokensPerSec.toFixed(1)} tok/s · ${replyStats.tokenCount} tokens`
+                : null}
           </Text>
         </View>
       )}

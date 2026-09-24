@@ -219,9 +219,9 @@ export function MessageBubble({ role, content, imageUri, isGenerating }: Message
 
 const styles = StyleSheet.create({
   bubble: {
-    padding: 12,
+    padding: 13,
     borderRadius: 16,
-    maxWidth: '82%',
+    width: '100%',
   },
   userBubble: { backgroundColor: '#20C997' },
   aiBubble: { backgroundColor: AI_BG },

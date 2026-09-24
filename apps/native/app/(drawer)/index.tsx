@@ -1,18 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Text,
-  TouchableOpacity,
-  View,
-  Image,
-  Alert,
-} from 'react-native';
+import { FlatList, KeyboardAvoidingView, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
-import botIcon from '@/assets/bot.png';
 import {
   AGRI_SYSTEM_PROMPT,
   getChatLanguage,
@@ -75,6 +66,11 @@ export default function ChatScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [streaming, setStreaming] = useState('');
+  const [replyStats, setReplyStats] = useState<{
+    seconds: number;
+    tokensPerSec: number;
+    tokenCount: number;
+  } | null>(null);
   const [modelId, setModelId] = useState<LlmModelId | null>(null);
   const [modelChecked, setModelChecked] = useState(false);
   const [language, setLanguage] = useState<ChatLanguage>('english');
@@ -151,6 +147,7 @@ export default function ChatScreen() {
     setMessages([]);
     setStreaming('');
     setIsThinking(false);
+    setReplyStats(null);
     setText('');
     setImageUri(null);
   }, []);
@@ -221,6 +218,8 @@ export default function ChatScreen() {
   const streamReply = useCallback(
     async (history: Message[], query: string, attachedImage: string | null) => {
       let accumulated = '';
+      const startedAt = Date.now();
+      let tokenCount = 0;
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -240,11 +239,18 @@ export default function ChatScreen() {
           language,
           signal: controller.signal,
           onToken: (_tok, acc) => {
+            tokenCount += 1;
             accumulated = acc;
             setStreaming(acc);
           },
         });
         await persistSession(history, query, accumulated, attachedImage);
+        const elapsed = (Date.now() - startedAt) / 1000;
+        setReplyStats({
+          seconds: elapsed,
+          tokenCount,
+          tokensPerSec: elapsed > 0 ? tokenCount / elapsed : 0,
+        });
         setStreaming('');
         setMessages((prev) => [
           ...prev,
@@ -293,6 +299,7 @@ export default function ChatScreen() {
     setText('');
     setImageUri(null);
     setStreaming('');
+    setReplyStats(null);
     setIsThinking(true);
     scrollToEnd();
 
@@ -329,19 +336,7 @@ export default function ChatScreen() {
     const isUser = item.role === 'user';
     const isGenerating = isThinking && !isUser && item.id === generatingId;
     return (
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: isUser ? 'flex-end' : 'flex-start',
-          marginVertical: 6,
-        }}
-      >
-        {!isUser && (
-          <Image
-            source={botIcon}
-            style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }}
-          />
-        )}
+      <View style={{ marginVertical: 6 }}>
         <MessageBubble
           role={item.role}
           content={item.content}
@@ -413,14 +408,18 @@ export default function ChatScreen() {
         }
       />
 
-      {isThinking && (
+      {(isThinking || replyStats) && (
         <View style={{ flexDirection: 'row', paddingLeft: 15, paddingBottom: 4 }}>
           <Text style={{ color: '#20C997', fontSize: 13 }}>
-            {streaming.length > 0
-              ? modelId
-                ? `Streaming from ${getModelInfo(modelId).label}`
-                : 'Streaming…'
-              : 'Thinking…'}
+            {isThinking
+              ? streaming.length > 0
+                ? modelId
+                  ? `Streaming from ${getModelInfo(modelId).label}`
+                  : 'Streaming…'
+                : 'Thinking…'
+              : replyStats
+                ? `✓ ${replyStats.seconds.toFixed(1)}s · ${replyStats.tokensPerSec.toFixed(1)} tok/s · ${replyStats.tokenCount} tokens`
+                : null}
           </Text>
         </View>
       )}
