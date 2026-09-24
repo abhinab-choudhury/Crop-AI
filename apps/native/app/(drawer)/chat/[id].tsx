@@ -20,6 +20,7 @@ import {
   setChatLanguage,
   getReadyModelId,
   modelSupportsVision,
+  setSelectedModelId,
   streamChatMessage,
   suggestChatTitle,
   type LlmModelId,
@@ -31,6 +32,7 @@ import { RenameThreadModal } from '@/components/rename-thread-modal';
 import { ChatInput } from '@/components/chat-input';
 import { MessageBubble } from '@/components/message-bubble';
 import { LanguageSelector } from '@/components/language-selector';
+import { ModelSelector } from '@/components/model-selector';
 
 // Transient id for the in-flight reply bubble so it never collides with
 // persisted message ids (which are positive, or optimistic -1/-2).
@@ -238,6 +240,12 @@ export default function ThreadScreen() {
     setChatLanguage(next);
   };
 
+  const changeModel = (next: LlmModelId) => {
+    if (next === modelId) return;
+    setModelId(next);
+    setSelectedModelId(next);
+  };
+
   const sendMessage = async (raw: string, attachedImage: string | null = null) => {
     const query = raw.trim();
     if ((!query && !attachedImage) || isThinking || streaming || !modelId || !id) return;
@@ -372,6 +380,8 @@ export default function ThreadScreen() {
       )}
 
       <LanguageSelector value={language} onChange={changeLanguage} disabled={isThinking} />
+
+      <ModelSelector value={modelId} onChange={changeModel} disabled={isThinking} />
 
       <ChatInput
         value={text}

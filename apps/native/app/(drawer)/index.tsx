@@ -20,6 +20,7 @@ import {
   getModelInfo,
   getReadyModelId,
   modelSupportsVision,
+  setSelectedModelId,
   streamChatMessage,
   suggestChatTitle,
   type LlmModelId,
@@ -32,6 +33,7 @@ import { RenameThreadModal } from '@/components/rename-thread-modal';
 import { ChatInput } from '@/components/chat-input';
 import { MessageBubble } from '@/components/message-bubble';
 import { LanguageSelector } from '@/components/language-selector';
+import { ModelSelector } from '@/components/model-selector';
 import { onNewChat } from '@/lib/chat-session';
 
 type Message = {
@@ -278,6 +280,12 @@ export default function ChatScreen() {
     setChatLanguage(next);
   };
 
+  const changeModel = (next: LlmModelId) => {
+    if (next === modelId) return;
+    setModelId(next);
+    setSelectedModelId(next);
+  };
+
   const sendMessage = async (raw: string, attachedImage: string | null = null) => {
     const query = raw.trim();
     if ((!query && !attachedImage) || isThinking || streaming || !modelId) return;
@@ -418,6 +426,8 @@ export default function ChatScreen() {
       )}
 
       <LanguageSelector value={language} onChange={changeLanguage} disabled={isThinking} />
+
+      <ModelSelector value={modelId} onChange={changeModel} disabled={isThinking} />
 
       <ChatInput
         value={text}
