@@ -93,6 +93,7 @@ export default function OnboardingScreen() {
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [downloaded, setDownloaded] = useState<Set<string>>(new Set());
   const permissionsRef = useRef(false);
+  const cancelRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     LLM_MODELS.forEach((model) => {
@@ -108,6 +109,8 @@ export default function OnboardingScreen() {
   const step2Done = downloaded.size > 0;
 
   const handleDownload = async (id: LlmModelId) => {
+    const controller = new AbortController();
+    cancelRef.current = controller;
     setDownloadingId(id);
     setProgress((prev) => ({ ...prev, [id]: 0 }));
 
@@ -115,6 +118,7 @@ export default function OnboardingScreen() {
     const online = await checkOnline(info.url);
     if (!online) {
       Alert.alert('Connection error', 'Could not connect to the internet');
+      cancelRef.current = null;
       setDownloadingId(null);
       return;
     }
@@ -143,21 +147,25 @@ export default function OnboardingScreen() {
         });
       }
 
-      await downloadModel(id, (fraction) => {
-        setProgress((prev) => ({ ...prev, [id]: fraction }));
-        if (canNotify) {
-          Notifications.scheduleNotificationAsync({
-            identifier: dlIdentifier,
-            content: {
-              title: `Downloading ${info.label}`,
-              body: `${Math.round(fraction * 100)}%`,
-              sound: false,
-              priority: Notifications.AndroidNotificationPriority.LOW,
-            },
-            trigger: null,
-          }).catch(() => {});
-        }
-      });
+      await downloadModel(
+        id,
+        (fraction) => {
+          setProgress((prev) => ({ ...prev, [id]: fraction }));
+          if (canNotify) {
+            Notifications.scheduleNotificationAsync({
+              identifier: dlIdentifier,
+              content: {
+                title: `Downloading ${info.label}`,
+                body: `${Math.round(fraction * 100)}%`,
+                sound: false,
+                priority: Notifications.AndroidNotificationPriority.LOW,
+              },
+              trigger: null,
+            }).catch(() => {});
+          }
+        },
+        controller.signal,
+      );
 
       setDownloaded((prev) => {
         const next = new Set(prev);
@@ -171,10 +179,19 @@ export default function OnboardingScreen() {
       await Notifications.dismissNotificationAsync(dlIdentifier).catch(() => {});
     } catch (error) {
       await Notifications.dismissNotificationAsync(dlIdentifier).catch(() => {});
-      Alert.alert('Download failed', error instanceof Error ? error.message : 'Unknown error');
+      const aborted =
+        error instanceof Error && (error.message === 'aborted' || error.name === 'AbortError');
+      if (!aborted) {
+        Alert.alert('Download failed', error instanceof Error ? error.message : 'Unknown error');
+      }
     } finally {
+      cancelRef.current = null;
       setDownloadingId(null);
     }
+  };
+
+  const cancelDownload = () => {
+    cancelRef.current?.abort();
   };
 
   const handleContinue = async () => {
@@ -299,6 +316,13 @@ export default function OnboardingScreen() {
                             Downloading… {Math.round(prog * 100)}%
                           </Text>
                         </View>
+                        <TouchableOpacity
+                          onPress={cancelDownload}
+                          className="mt-3 flex-row items-center justify-center rounded-xl border border-gray-300 bg-white py-2.5 active:bg-gray-50"
+                        >
+                          <Ionicons name="close-circle-outline" size={16} color="#6b7280" />
+                          <Text className="ml-2 text-sm font-semibold text-gray-700">Cancel</Text>
+                        </TouchableOpacity>
                       </View>
                     )}
 

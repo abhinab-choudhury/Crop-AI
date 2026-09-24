@@ -135,19 +135,24 @@ async function fetchRange(
   url: string,
   start: number,
   end: number,
+  signal?: AbortSignal,
   attempts: number = DL_MAX_ATTEMPTS,
 ): Promise<Uint8Array> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
+    if (signal?.aborted) throw new Error('aborted');
     try {
       const res = await fetch(url, {
         headers: { Range: `bytes=${start}-${end}` },
+        signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
       if (res.status === 206) return bytes;
       throw new Error(`Server ignored Range request (HTTP ${res.status})`);
     } catch (error) {
+      const aborted = signal?.aborted || (error instanceof Error && error.name === 'AbortError');
+      if (aborted) throw new Error('aborted');
       lastError = error;
       if (attempt < attempts - 1) {
         await sleep(DL_RETRY_BASE_MS * 2 ** attempt);
@@ -190,6 +195,8 @@ interface FileDownloadOptions {
   /** Grand total across all files (for multi-file aggregate fraction). */
   grandTotal?: number;
   onProgress?: (fraction: number, bytes: number, total: number) => void;
+  /** Optional signal to cancel the download mid-transfer. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -207,6 +214,7 @@ async function downloadOneFile(options: FileDownloadOptions): Promise<void> {
     baseBytes = 0,
     grandTotal = 0,
     onProgress,
+    signal,
   } = options;
 
   const dir = dest.parentDirectory;
@@ -233,8 +241,11 @@ async function downloadOneFile(options: FileDownloadOptions): Promise<void> {
   try {
     if (total > 0) {
       while (offset < total) {
+        if (signal?.aborted) {
+          throw new Error('aborted');
+        }
         const end = Math.min(offset + DL_CHUNK_BYTES - 1, total - 1);
-        const bytes = await fetchRange(url, offset, end);
+        const bytes = await fetchRange(url, offset, end, signal);
         handle.offset = offset;
         handle.writeBytes(bytes);
         offset += bytes.byteLength;
@@ -246,7 +257,10 @@ async function downloadOneFile(options: FileDownloadOptions): Promise<void> {
         );
       }
     } else {
-      const res = await fetch(url);
+      if (signal?.aborted) {
+        throw new Error('aborted');
+      }
+      const res = await fetch(url, { signal });
       if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
       handle.writeBytes(bytes);
@@ -258,8 +272,24 @@ async function downloadOneFile(options: FileDownloadOptions): Promise<void> {
         grandTotal || expected,
       );
     }
+  } catch (error) {
+    const aborted = signal?.aborted || (error instanceof Error && error.name === 'AbortError');
+    try {
+      handle.close();
+    } catch (error) {
+      // ignore close errors
+    }
+    // Don't leave a half-downloaded model on disk after a cancel.
+    if (aborted && dest.exists) {
+      dest.delete();
+    }
+    throw error;
   } finally {
-    handle.close();
+    try {
+      handle.close();
+    } catch (error) {
+      // ignore close errors
+    }
   }
 
   if (expected > 0 && offset < expected) {
@@ -282,6 +312,7 @@ async function downloadOneFile(options: FileDownloadOptions): Promise<void> {
 export async function downloadModel(
   id: LlmModelId,
   onProgress?: (fraction: number, bytes: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const info = getModelInfo(id);
 
@@ -310,6 +341,7 @@ export async function downloadModel(
       ...fileSpec,
       baseBytes,
       grandTotal,
+      signal,
       onProgress: (fraction, bytes, total) => onProgress?.(fraction, bytes, total),
     });
     baseBytes += fileSpec.dest.exists ? (fileSpec.dest.size ?? 0) : fileSpec.totalHint || 0;
