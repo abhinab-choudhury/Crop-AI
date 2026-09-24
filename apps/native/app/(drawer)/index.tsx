@@ -16,6 +16,8 @@ import { router, useFocusEffect, useNavigation } from 'expo-router';
 import botIcon from '@/assets/bot.png';
 import {
   AGRI_SYSTEM_PROMPT,
+  getChatLanguage,
+  setChatLanguage,
   getModelInfo,
   getReadyModelId,
   modelSupportsVision,
@@ -24,11 +26,13 @@ import {
   type LlmModelId,
   type ChatRole,
   type ChatMessage,
+  type ChatLanguage,
 } from '@/lib/llm';
 import { createThread, addMessage, getThread, updateThreadTitle } from '@/lib/db';
 import { RenameThreadModal } from '@/components/rename-thread-modal';
 import { ChatInput } from '@/components/chat-input';
 import { MessageBubble } from '@/components/message-bubble';
+import { LanguageSelector } from '@/components/language-selector';
 import { onNewChat } from '@/lib/chat-session';
 
 type Message = {
@@ -72,6 +76,7 @@ export default function ChatScreen() {
   const [streaming, setStreaming] = useState('');
   const [modelId, setModelId] = useState<LlmModelId | null>(null);
   const [modelChecked, setModelChecked] = useState(false);
+  const [language, setLanguage] = useState<ChatLanguage>('english');
   const threadIdRef = useRef<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [title, setTitle] = useState('Chat');
@@ -156,6 +161,9 @@ export default function ChatScreen() {
       setModelId(id);
       setModelChecked(true);
     });
+    getChatLanguage().then((lang) => {
+      if (mounted) setLanguage(lang);
+    });
     return () => {
       mounted = false;
       abortRef.current?.abort();
@@ -228,6 +236,7 @@ export default function ChatScreen() {
         await streamChatMessage({
           messages: llmMessages,
           modelId,
+          language,
           signal: controller.signal,
           onToken: (_tok, acc) => {
             accumulated = acc;
@@ -262,8 +271,13 @@ export default function ChatScreen() {
         setIsThinking(false);
       }
     },
-    [modelId, persistSession],
+    [modelId, persistSession, language],
   );
+
+  const changeLanguage = (next: ChatLanguage) => {
+    setLanguage(next);
+    setChatLanguage(next);
+  };
 
   const sendMessage = async (raw: string, attachedImage: string | null = null) => {
     const query = raw.trim();
@@ -403,6 +417,8 @@ export default function ChatScreen() {
           </Text>
         </View>
       )}
+
+      <LanguageSelector value={language} onChange={changeLanguage} disabled={isThinking} />
 
       <ChatInput
         value={text}

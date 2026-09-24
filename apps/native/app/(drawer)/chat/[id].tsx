@@ -17,17 +17,21 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import botIcon from '@/assets/bot.png';
 import {
   AGRI_SYSTEM_PROMPT,
+  getChatLanguage,
+  setChatLanguage,
   getReadyModelId,
   modelSupportsVision,
   streamChatMessage,
   suggestChatTitle,
   type LlmModelId,
   type ChatRole,
+  type ChatLanguage,
 } from '@/lib/llm';
 import { addMessage, getMessages, getThread, updateThreadTitle, type MessageRow } from '@/lib/db';
 import { RenameThreadModal } from '@/components/rename-thread-modal';
 import { ChatInput } from '@/components/chat-input';
 import { MessageBubble } from '@/components/message-bubble';
+import { LanguageSelector } from '@/components/language-selector';
 
 // Transient id for the in-flight reply bubble so it never collides with
 // persisted message ids (which are positive, or optimistic -1/-2).
@@ -48,6 +52,7 @@ export default function ThreadScreen() {
   const [streaming, setStreaming] = useState('');
   const [modelId, setModelId] = useState<LlmModelId | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [language, setLanguage] = useState<ChatLanguage>('english');
   const [title, setTitle] = useState('Chat');
   const [renameVisible, setRenameVisible] = useState(false);
 
@@ -105,7 +110,13 @@ export default function ThreadScreen() {
   }, [modelId, isThinking, messages]);
 
   useEffect(() => {
-    getReadyModelId().then(setModelId);
+    let mounted = true;
+    getReadyModelId().then((id2) => {
+      if (mounted) setModelId(id2);
+    });
+    getChatLanguage().then((lang) => {
+      if (mounted) setLanguage(lang);
+    });
     if (id) {
       getMessages(id).then((rows) => {
         setMessages(rows);
@@ -117,7 +128,10 @@ export default function ThreadScreen() {
     } else {
       setLoaded(true);
     }
-    return () => abortRef.current?.abort();
+    return () => {
+      mounted = false;
+      abortRef.current?.abort();
+    };
   }, [id]);
 
   const scrollToEnd = () =>
@@ -141,6 +155,7 @@ export default function ThreadScreen() {
             { role: 'user', content: query, imageUri: attachedImage },
           ],
           modelId,
+          language,
           signal: controller.signal,
           onToken: (_tok, acc) => {
             accumulated = acc;
@@ -216,8 +231,13 @@ export default function ThreadScreen() {
         setIsThinking(false);
       }
     },
-    [id, modelId, title],
+    [id, modelId, title, language],
   );
+
+  const changeLanguage = (next: ChatLanguage) => {
+    setLanguage(next);
+    setChatLanguage(next);
+  };
 
   const sendMessage = async (raw: string, attachedImage: string | null = null) => {
     const query = raw.trim();
@@ -351,6 +371,8 @@ export default function ThreadScreen() {
           </Text>
         </View>
       )}
+
+      <LanguageSelector value={language} onChange={changeLanguage} disabled={isThinking} />
 
       <ChatInput
         value={text}

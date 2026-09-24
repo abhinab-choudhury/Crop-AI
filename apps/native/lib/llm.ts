@@ -442,9 +442,65 @@ export interface ChatMessage {
   imageUri?: string | null;
 }
 
+export type ChatLanguage = 'english' | 'hindi' | 'bengali' | 'tamil';
+
+export interface ChatLanguageOption {
+  id: ChatLanguage;
+  /** Human-readable name in English, e.g. "Hindi". */
+  label: string;
+  /** The language written in its own script, e.g. "हिन्दी". */
+  native: string;
+}
+
+export const CHAT_LANGUAGES: ChatLanguageOption[] = [
+  { id: 'english', label: 'English', native: 'English' },
+  { id: 'hindi', label: 'Hindi', native: 'हिन्दी' },
+  { id: 'bengali', label: 'Bengali', native: 'বাংলা' },
+  { id: 'tamil', label: 'Tamil', native: 'தமிழ்' },
+];
+
+const SETTING_LANGUAGE = 'chat.language';
+
+/** Returns the farmer's preferred chat language, defaulting to English. */
+export async function getChatLanguage(): Promise<ChatLanguage> {
+  const stored = await getSetting(SETTING_LANGUAGE);
+  const valid = CHAT_LANGUAGES.some((l) => l.id === stored);
+  return valid ? (stored as ChatLanguage) : 'english';
+}
+
+export async function setChatLanguage(language: ChatLanguage): Promise<void> {
+  await setSetting(SETTING_LANGUAGE, language);
+  languageRef.current = language;
+}
+
+let languageRef: { current: ChatLanguage } = { current: 'english' };
+
+/** Directives threaded into the system prompt so the on-device model replies
+ *  in the farmer's chosen language, not just in whatever it was asked in. */
+export function languageDirective(language: ChatLanguage): string {
+  switch (language) {
+    case 'hindi':
+      return 'Respond in Hindi (हिन्दी). Write your whole answer in Devanagari script.';
+    case 'bengali':
+      return 'Respond in Bengali (বাংলা). Write your whole answer in the Bengali script.';
+    case 'tamil':
+      return 'Respond in Tamil (தமிழ்). Write your whole answer in the Tamil script.';
+    default:
+      return 'Respond in English.';
+  }
+}
+
+/** Appends the language instruction to the leading system message so the reply
+ *  is generated in the chosen language regardless of how the question was typed. */
+function applyLanguage(systemPrompt: string, language: ChatLanguage): string {
+  return `${systemPrompt}\n\n${languageDirective(language)}`;
+}
+
 export interface OfflineChatOptions {
   messages: ChatMessage[];
   modelId: LlmModelId | null;
+  /** Optional preferred reply language. Falls back to the persisted setting. */
+  language?: ChatLanguage;
   onToken?: (partial: string, accumulated: string) => void;
   signal?: AbortSignal;
 }
@@ -472,6 +528,20 @@ function toLlamaMessages(messages: ChatMessage[]) {
   });
 }
 
+/** Appends the reply-language directive to the leading system message so the
+ *  model generates its answer in the chosen language, regardless of how the
+ *  question was typed. A no-op when there is no system message in the list. */
+function injectLanguageDirective(messages: ChatMessage[], language: ChatLanguage): ChatMessage[] {
+  let injected = false;
+  return messages.map((m) => {
+    if (!injected && m.role === 'system') {
+      injected = true;
+      return { ...m, content: applyLanguage(m.content, language) };
+    }
+    return m;
+  });
+}
+
 /**
  * Streams a reply from the on-device model. Returns the full generated text.
  * Throws if no model is downloaded or if aborted.
@@ -479,6 +549,7 @@ function toLlamaMessages(messages: ChatMessage[]) {
 export async function streamChatMessage({
   messages,
   modelId,
+  language,
   onToken,
   signal,
 }: OfflineChatOptions): Promise<string> {
@@ -497,6 +568,7 @@ export async function streamChatMessage({
     throw new Error('aborted');
   }
 
+  const replyLanguage = language ?? (await getChatLanguage());
   const ctx = await getContext(modelId);
   const abort = () => ctx.stopCompletion();
 
@@ -508,7 +580,7 @@ export async function streamChatMessage({
     let accumulated = '';
     const result = await ctx.completion(
       {
-        messages: toLlamaMessages(messages),
+        messages: toLlamaMessages(injectLanguageDirective(messages, replyLanguage)),
         n_predict: 512,
         temperature: 0.7,
         top_p: 0.9,
@@ -572,7 +644,10 @@ export async function suggestChatTitle(
     await ctx.completion(
       {
         messages: [
-          { role: 'system', content: AGRI_SYSTEM_PROMPT },
+          {
+            role: 'system',
+            content: applyLanguage(AGRI_SYSTEM_PROMPT, await getChatLanguage()),
+          },
           {
             role: 'user',
             content:
