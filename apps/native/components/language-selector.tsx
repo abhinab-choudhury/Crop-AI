@@ -19,11 +19,14 @@ export function LanguageSelector({ value, onChange, disabled = false }: Language
         flexDirection: 'row',
         alignItems: 'center',
         flexWrap: 'wrap',
+        rowGap: 6,
         paddingHorizontal: 15,
-        paddingBottom: 6,
+        paddingTop: 6,
+        paddingBottom: 8,
+        gap: 6,
       }}
     >
-      <Ionicons name="language-outline" size={14} color="#6b7280" style={{ marginRight: 6 }} />
+      <Ionicons name="language-outline" size={14} color="#6b7280" />
       {CHAT_LANGUAGES.map((lang) => {
         const selected = lang.id === value;
         return (
@@ -33,13 +36,10 @@ export function LanguageSelector({ value, onChange, disabled = false }: Language
             disabled={disabled}
             activeOpacity={0.7}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 12,
-              paddingVertical: 5,
+              justifyContent: 'center',
+              paddingHorizontal: 13,
+              paddingVertical: 6,
               borderRadius: 999,
-              marginRight: 6,
-              marginBottom: 4,
               borderWidth: 1,
               borderColor: selected ? '#0f766e' : '#e5e7eb',
               backgroundColor: selected ? '#e6f7f5' : '#f8fafc',
@@ -48,6 +48,9 @@ export function LanguageSelector({ value, onChange, disabled = false }: Language
             <Text
               style={{
                 fontSize: 13,
+                lineHeight: 18,
+                includeFontPadding: false,
+                textAlign: 'center',
                 fontWeight: selected ? '600' : '400',
                 color: selected ? '#0f766e' : '#374151',
               }}
