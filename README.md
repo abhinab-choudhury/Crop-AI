@@ -144,7 +144,7 @@ Crop-AI/
 
 Real screenshots and a short walkthrough video live under `docs/media/`. To add them:
 
-1. Drop images into **`docs/media/screenshots/`** (e.g. `chat.png`, `diagnosis.png`, `profile.png`).
+1. Drop images into **`docs/media/screenshots/`** (e.g. `chat-screen-1.png`, `plant-disease-detection.png`, `profile-screen.png`).
 2. Drop a demo video into **`docs/media/`** (e.g. `crop-ai-demo.mp4`).
 3. Reference them below (or replace the placeholders).
 
@@ -152,25 +152,21 @@ Real screenshots and a short walkthrough video live under `docs/media/`. To add 
 > before you add files. Keep images reasonably sized (ideally webP / compressed PNG)
 > to stay friendly on mobile data plans.
 
-### Sample Screenshots
+### Screenshots
 
-```
-docs/media/screenshots/
-├── chat.png          # Main chat + streaming reply
-├── diagnosis.png     # Leaf disease detection result
-├── models.png        # Profile → AI Models (offline downloads)
-└── ...
-```
-
-### Demo Video
-
-Place your walkthrough at **`docs/media/crop-ai-demo.mp4`** and it will be embedded here, e.g.:
-
-```html
-<video width="100%" controls>
-  <source src="docs/media/crop-ai-demo.mp4" type="video/mp4" />
-</video>
-```
+<p align="center">
+  <img src="docs/media/screenshots/on-boarding-1.png" alt="Onboarding" width="240"/>
+  <img src="docs/media/screenshots/chat-screen-1.png" alt="Chat conversation" width="240"/>
+</p>
+<p align="center">
+  <img src="docs/media/screenshots/chat-screen-2.png" alt="Chat — streaming reply" width="240"/>
+  <img src="docs/media/screenshots/plant-disease-detection.png" alt="Plant disease detection" width="240"/>
+  <img src="docs/media/screenshots/history-screen.png" alt="Chat history" width="240"/>
+</p>
+<p align="center">
+  <img src="docs/media/screenshots/profile-screen.png" alt="Profile — AI models" width="240"/>
+  <img src="docs/media/screenshots/about-screen.png" alt="About screen" width="240"/>
+</p>
 
 ---
 
