@@ -14,7 +14,7 @@ const config = withTurborepoManagedCache(
 );
 
 config.resolver.unstable_enablePackageExports = true;
-config.resolver.disableHierarchicalLookup = true;
+config.resolver.disableHierarchicalLookup = false;
 
 config.watchFolders = [
   ...(config.watchFolders || []),
