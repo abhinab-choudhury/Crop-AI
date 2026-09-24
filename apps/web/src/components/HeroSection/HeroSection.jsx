@@ -65,10 +65,10 @@ export default function HeroSection() {
     () => [
       'Insights', // English baseline
       'अंतरदृष्टि', // Hindi
-      'ଆନ୍ତର୍ଦୃଷ୍ଟି', // Odia
       'অন্তর্দৃষ্টি', // Bengali
-      'అవగాహనలు', // Telugu
-      'അന്തര്ദൃഷ്ടി', // Malayalam
+      'நுண்ணறிவு', // Tamil
+      'உள்ளுணர்வு', // Tamil
+      'অন্তদৃষ্টি', // Bengali
     ],
     [],
   );
@@ -113,7 +113,11 @@ export default function HeroSection() {
           </motion.p>
 
           <motion.div className="hero-ctas" variants={fadeUp}>
-            <a target="_blank" href="https://www.youtube.com/watch?v=zUs26gJMBTo" className="btn btn-primary">
+            <a
+              target="_blank"
+              href="https://www.youtube.com/watch?v=zUs26gJMBTo"
+              className="btn btn-primary"
+            >
               <FaYoutube size={20} />
               Youtube Demo
             </a>

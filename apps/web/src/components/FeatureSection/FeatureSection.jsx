@@ -104,7 +104,7 @@ export default function FeaturesSection() {
             </p>
             <div className="chips">
               <span className="chip">
-                <FaLanguage /> 12+ Indian languages
+                <FaLanguage /> English · हिन्दी · বাংলা · தமிழ்
               </span>
               <span className="chip">
                 <FaMicrophoneAlt /> Voice input

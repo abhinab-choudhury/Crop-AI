@@ -26,7 +26,7 @@ Crop AI is a full-stack, AI-driven agriculture platform that helps farmers with:
 - 💬 **Conversational AI chat** — including fully **offline / on-device** after a one-time download
 - 🌾 **Crop recommendation & yield prediction**
 - 🌍 **Region-aware agricultural guidance**
-- 🗣 **Multilingual + Speech-based interaction**
+- 🗣 **Multilingual assistant** — reply language selector: **English** (default), **हिन्दी (Hindi)**, **বাংলা (Bengali)**, and **தமிழ் (Tamil)**
 
 The project is built as a **TurboRepo monorepo** (pnpm workspaces) combining an Expo/React Native
 mobile app, a React + Vite web landing page, an Express backend, and a FastAPI ML server into a
@@ -65,6 +65,7 @@ single, scalable codebase.
 
 - [x] Conversational assistant
 - [x] **Fully offline on-device LLM** (Qwen 2.5 0.5B/1.5B) via `llama.rn`
+- [x] **Multilingual replies** — English (default), Hindi, Bengali, and Tamil via an in-chat language selector
 - [x] **Vision model** (Qwen 2.5-VL 3B) — send photos and the AI understands them on-device
 - [x] Streaming replies with a typing / thinking indicator
 - [x] Markdown-formatted replies (bold, lists, code, tables)
