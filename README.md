@@ -3,20 +3,26 @@
   <h2>AI-Powered Crop Diagnosis, Advisory & Multilingual Assistance</h2>
   <p>
     An end-to-end, mobile-first platform that helps farmers diagnose crop diseases,
-    get intelligent recommendations, and interact using voice or chat — even in
-    low-connectivity environments.
+    get intelligent recommendations.
   </p>
 </div>
 
----
+<p align="center">
+  <a href="https://deepwiki.com/abhinab-choudhury/Crop-AI">
+    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
+  </a>
+  <a href="https://github.com/abhinab-choudhury/Crop-AI/releases">
+    <img src="https://img.shields.io/badge/Download%20Android%20App-Download-green?logo=android" alt="Download Android App">
+  </a>
+</p>
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/abhinab-choudhury/Crop-AI)
+## ⬇️ Download the Android App
 
-## 🚀 Live Demo
+The Android version of **Crop AI** is available for download from the GitHub Releases page.
 
-👉 https://crop-ai-one.vercel.app/
+👉 **[Download the latest Android APK](https://github.com/abhinab-choudhury/Crop-AI/releases)**
 
----
+> Download the latest `.apk` file from the **Releases** section and install it on your Android device.
 
 # 🚀 Overview
 
@@ -140,19 +146,7 @@ Crop-AI/
 
 ---
 
-## 📸 Screenshots & Video Demo
-
-Real screenshots and a short walkthrough video live under `docs/media/`. To add them:
-
-1. Drop images into **`docs/media/screenshots/`** (e.g. `chat-screen-1.png`, `plant-disease-detection.png`, `profile-screen.png`).
-2. Drop a demo video into **`docs/media/`** (e.g. `crop-ai-demo.mp4`).
-3. Reference them below (or replace the placeholders).
-
-> `docs/media/` is kept in the repo with a `.gitkeep` so the folders exist even
-> before you add files. Keep images reasonably sized (ideally webP / compressed PNG)
-> to stay friendly on mobile data plans.
-
-### Screenshots
+## 📸 Screenshots
 
 <p align="center">
   <img src="docs/media/screenshots/on-boarding-1.png" alt="Onboarding" width="240"/>
@@ -248,10 +242,3 @@ device; first run downloads the on-device LLM + ONNX disease model (resumable, c
 
 For a local build (JDK 17 + Android SDK / NDK), see [apps/native/README.md](apps/native/README.md#building-the-android-apk).
 
----
-
-## 🤝 Contributing
-
-Pull requests and improvements are welcome. Start with `pnpm dev`, then open a PR —
-the repo uses TurboRepo + pnpm workspaces, and a single push to `main` triggers one
-CI build via the GitHub Actions workflow.
