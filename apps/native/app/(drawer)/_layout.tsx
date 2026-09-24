@@ -63,7 +63,7 @@ export default function DrawerLayout() {
             <DrawerItem
               label={({ color }) => (
                 <Text className="font-poppinsMedium text-xl" style={{ color }}>
-                  Chat
+                  New Chat
                 </Text>
               )}
               icon={({ focused, color, size }) =>
@@ -99,9 +99,9 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="index"
         options={{
-          title: 'Chat',
+          title: 'New Chat',
           drawerItemStyle: { display: 'none' },
-          headerTitle: () => <Text className="font-poppinsMedium text-xl">Chat</Text>,
+          headerTitle: () => <Text className="font-poppinsMedium text-xl">New Chat</Text>,
           drawerLabel: ({ focused, color }) => (
             <Text
               className="font-poppinsMedium text-xl"
@@ -109,7 +109,7 @@ export default function DrawerLayout() {
                 color: color,
               }}
             >
-              Chat
+              New Chat
             </Text>
           ),
           drawerIcon: ({ focused, color, size }) =>

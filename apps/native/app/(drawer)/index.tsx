@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Text,
   TouchableOpacity,
   View,
@@ -79,7 +78,7 @@ export default function ChatScreen() {
   const [language, setLanguage] = useState<ChatLanguage>('english');
   const threadIdRef = useRef<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [title, setTitle] = useState('Chat');
+  const [title, setTitle] = useState('New Chat');
   const [renameVisible, setRenameVisible] = useState(false);
 
   const canUseImages = modelId ? modelSupportsVision(modelId) : false;
@@ -350,7 +349,7 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: '#fff' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
       keyboardVerticalOffset={headerHeight + (showModelBanner ? 40 : 0)}
     >
       {showModelBanner && (
