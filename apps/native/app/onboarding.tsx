@@ -19,6 +19,7 @@ import {
   downloadModel,
   getModelDownloadInfo,
   getModelInfo,
+  setSelectedModelId,
   type LlmModelId,
 } from '@/lib/llm';
 import * as Notifications from 'expo-notifications';
@@ -163,6 +164,9 @@ export default function OnboardingScreen() {
         next.add(id);
         return next;
       });
+
+      // Make the onboarding download the app's default (active) model.
+      await setSelectedModelId(id);
 
       await Notifications.dismissNotificationAsync(dlIdentifier).catch(() => {});
     } catch (error) {

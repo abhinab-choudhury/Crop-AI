@@ -348,6 +348,10 @@ export async function getSelectedModelId(): Promise<LlmModelId> {
   if (stored && LLM_MODELS.some((m) => m.id === stored)) {
     return stored as LlmModelId;
   }
+  // Fall back to whichever model is actually on disk (typically the one chosen
+  // during onboarding) before resorting to the hard-coded default.
+  const downloaded = getDownloadedModelIds();
+  if (downloaded.length) return downloaded[0];
   return DEFAULT_MODEL_ID;
 }
 
