@@ -17,6 +17,7 @@ import {
   getRemoteModelSize,
   isModelCached,
   predictDisease,
+  testModelOnDevice,
   MODEL_URL,
   MODEL_FILENAME,
   type DiseasePrediction,
@@ -60,6 +61,7 @@ export default function DiagnosisScreen() {
     eta: 0,
   });
   const [resuming, setResuming] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
   const cancelRef = React.useRef<AbortController | null>(null);
 
   React.useEffect(() => {
@@ -129,6 +131,18 @@ export default function DiagnosisScreen() {
     cancelRef.current?.abort();
   };
 
+  const runModelTest = async () => {
+    setTesting(true);
+    try {
+      const result = await testModelOnDevice();
+      Alert.alert(result.ok ? 'Model works ✓' : 'Model check failed', result.message);
+    } catch (error) {
+      Alert.alert('Model check failed', String(error instanceof Error ? error.message : error));
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const pickImage = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({ base64: false, quality: 1 });
     if (!res.canceled) {
@@ -179,10 +193,7 @@ export default function DiagnosisScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text className="text-center font-poppinsSemiBold text-2xl text-gray-900">
-          Crop Disease Detection
-        </Text>
-        <Text className="text-center font-poppinsRegular text-teal-600 text-base mt-1 max-w-xs self-center">
+        <Text className="pt-2 text-center font-poppinsRegular text-teal-600 text-base mt-1 max-w-xs self-center">
           {showModelCard
             ? 'Runs 100% on your device. The model downloads once, then works offline forever.'
             : 'Snap or pick a leaf photo. The neural network diagnoses it on-device — no internet needed.'}
@@ -355,25 +366,42 @@ export default function DiagnosisScreen() {
       </ScrollView>
 
       {!showModelCard && (
-        <View className="flex-row justify-between gap-3 px-5 pb-6 pt-2">
+        <>
           <TouchableOpacity
-            onPress={pickImage}
-            disabled={loading}
-            className="flex-1 flex-row justify-center items-center p-4 rounded-2xl bg-teal-600 shadow-md active:opacity-90"
+            onPress={runModelTest}
+            disabled={loading || testing}
+            className="self-end mr-5 mb-2 flex-row items-center rounded-full border border-teal-200 bg-teal-50 px-4 py-2 active:opacity-80"
           >
-            <Ionicons name="images-sharp" size={22} color="white" />
-            <Text className="text-white ml-2 font-poppinsSemiBold">Gallery</Text>
+            {testing ? (
+              <ActivityIndicator size="small" color="#0f766e" />
+            ) : (
+              <Ionicons name="flask-outline" size={16} color="#0f766e" />
+            )}
+            <Text className="ml-2 text-sm font-poppinsSemiBold text-teal-700">
+              {testing ? 'Testing…' : 'Test model'}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={captureImage}
-            disabled={loading}
-            className="flex-1 flex-row justify-center items-center p-4 rounded-2xl bg-teal-600 shadow-md active:opacity-90"
-          >
-            <Ionicons name="camera-outline" size={22} color="white" />
-            <Text className="text-white ml-2 font-poppinsSemiBold">Camera</Text>
-          </TouchableOpacity>
-        </View>
+          <View className="flex-row justify-between gap-3 px-5 pb-6 pt-2">
+            <TouchableOpacity
+              onPress={pickImage}
+              disabled={loading}
+              className="flex-1 flex-row justify-center items-center p-4 rounded-2xl bg-teal-600 shadow-md active:opacity-90"
+            >
+              <Ionicons name="images-sharp" size={22} color="white" />
+              <Text className="text-white ml-2 font-poppinsSemiBold">Gallery</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={captureImage}
+              disabled={loading}
+              className="flex-1 flex-row justify-center items-center p-4 rounded-2xl bg-teal-600 shadow-md active:opacity-90"
+            >
+              <Ionicons name="camera-outline" size={22} color="white" />
+              <Text className="text-white ml-2 font-poppinsSemiBold">Camera</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
 
       {showModelCard && getModelInfo().downloaded && (

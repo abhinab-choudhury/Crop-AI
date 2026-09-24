@@ -55,7 +55,7 @@ export const DISEASE_CLASSES: string[] = [
 export const DEFAULT_MODEL_URL =
   'https://github.com/abhinab-choudhury/Crop-AI/releases/download/plant-disease-model/resnet9_plant_disease.onnx';
 export const MODEL_FILENAME = 'resnet9_plant_disease.onnx';
-export const MODEL_URL = process.env.EXPO_PUBLIC_DISEASE_MODEL_URL ?? DEFAULT_MODEL_URL;
+export const MODEL_URL = process.env.EXPO_PUBLIC_DISEASE_MODEL_URL || DEFAULT_MODEL_URL;
 export const MODEL_INPUT_SIZE = 256;
 
 const getModelDir = (): Directory => new Directory(Paths.document.uri, 'models');
@@ -239,6 +239,42 @@ export function removeModel(): void {
   const part = getPartFile();
   if (part.exists) {
     part.delete();
+  }
+}
+
+export interface ModelTestResult {
+  ok: boolean;
+  message: string;
+}
+
+/** Runs a quick sanity pass through the cached ONNX model (loads the session
+ *  and evaluates a zeroed input) so users can verify the download is usable
+ *  without choosing a real photo. */
+export async function testModelOnDevice(): Promise<ModelTestResult> {
+  if (!isModelCached()) {
+    return { ok: false, message: 'The model is not downloaded yet.' };
+  }
+  try {
+    const session = await loadSession();
+    const input = new Float32Array(1 * 3 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE);
+    const feeds: Record<string, ort.Tensor> = {
+      input: new ort.Tensor('float32', input, [1, 3, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE]),
+    };
+    const outputs = await session.run(feeds);
+    const name = Object.keys(outputs)[0];
+    const data = (outputs[name]?.data as ArrayLike<number>) ?? [];
+    if (data.length <= 0) {
+      return { ok: false, message: 'The model ran but returned no output.' };
+    }
+    return {
+      ok: true,
+      message: `Model loads and runs. It produces ${data.length} class scores.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Model check failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }
 
