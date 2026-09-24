@@ -1,5 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { FlatList, KeyboardAvoidingView, Text, TouchableOpacity, View, Alert } from 'react-native';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+  TouchableOpacity,
+  View,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -353,7 +361,7 @@ export default function ChatScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: '#fff' }}
       behavior="padding"
-      keyboardVerticalOffset={headerHeight + (showModelBanner ? 40 : 0)}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight + (showModelBanner ? 40 : 0) : 0}
     >
       {showModelBanner && (
         <TouchableOpacity
