@@ -181,28 +181,32 @@ export async function downloadModel(
   const total = await resolveRemoteSize(MODEL_URL);
 
   // Resume from an existing partial download when it is consistent (<= total).
+  // A stale `.part` (empty or larger than the current remote file) is discarded.
   const part = getPartFile();
   let offset = 0;
   if (part.exists) {
     const existing = part.size ?? 0;
     if (existing > 0 && (total === 0 || existing <= total)) {
       offset = existing;
+    } else {
+      part.delete();
     }
   }
-  if (offset === 0) {
-    part.delete();
+  if (!part.exists) {
+    part.create({ intermediates: true, overwrite: true });
   }
-  part.create({ intermediates: true, overwrite: true });
+  // `create({ overwrite: true })` truncates an existing file, so when we are
+  // resuming we must NOT call it again — the partial data would be wiped.
 
   const handle = part.open();
   let wrote = offset;
   try {
-    handle.offset = offset;
     if (total > 0) {
       while (wrote < total) {
         if (signal?.aborted) throw new Error('aborted');
         const end = Math.min(wrote + DL_CHUNK_BYTES - 1, total - 1);
         const bytes = await fetchRange(MODEL_URL, wrote, end, signal);
+        handle.offset = wrote;
         handle.writeBytes(bytes);
         wrote += bytes.byteLength;
         onProgress?.(Math.min(1, wrote / total), wrote, total);
@@ -212,6 +216,7 @@ export async function downloadModel(
       const res = await fetch(MODEL_URL, { signal });
       if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
+      handle.offset = 0;
       handle.writeBytes(bytes);
       wrote += bytes.byteLength;
       onProgress?.(1, wrote, wrote);

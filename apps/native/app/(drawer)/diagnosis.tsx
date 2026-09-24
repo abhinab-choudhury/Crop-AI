@@ -62,6 +62,7 @@ export default function DiagnosisScreen() {
   });
   const [resuming, setResuming] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
+  const [downloading, setDownloading] = React.useState(false);
   const cancelRef = React.useRef<AbortController | null>(null);
 
   React.useEffect(() => {
@@ -88,6 +89,7 @@ export default function DiagnosisScreen() {
     const controller = new AbortController();
     cancelRef.current = controller;
     setScreen({ status: 'download' });
+    setDownloading(true);
     setDownloadProgress(0);
     setDownloadStats({ received: 0, total: 0, speed: 0, eta: 0 });
     setResuming(!!getPartialDownload());
@@ -123,12 +125,14 @@ export default function DiagnosisScreen() {
         message: `Download failed: ${error instanceof Error ? error.message : String(error)}`,
       });
     } finally {
+      setDownloading(false);
       cancelRef.current = null;
     }
   };
 
   const cancelDownload = () => {
     cancelRef.current?.abort();
+    setDownloading(false);
   };
 
   const runModelTest = async () => {
@@ -222,7 +226,7 @@ export default function DiagnosisScreen() {
               </View>
             )}
 
-            {screen.status === 'download' ? (
+            {downloading ? (
               <View className="mt-5">
                 {resuming && downloadProgress === 0 && (
                   <View className="mb-3 flex-row items-center gap-2 justify-center">
@@ -271,7 +275,9 @@ export default function DiagnosisScreen() {
               >
                 <View className="flex-row items-center gap-2">
                   <Ionicons name="download-outline" size={20} color="#fff" />
-                  <Text className="text-white font-poppinsSemiBold text-base">Download Model</Text>
+                  <Text className="text-white font-poppinsSemiBold text-base">
+                    {getPartialDownload() ? 'Resume Download' : 'Download Model'}
+                  </Text>
                 </View>
               </TouchableOpacity>
             )}
