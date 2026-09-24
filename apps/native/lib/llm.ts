@@ -516,13 +516,13 @@ let languageRef: { current: ChatLanguage } = { current: 'english' };
 export function languageDirective(language: ChatLanguage): string {
   switch (language) {
     case 'hindi':
-      return 'Respond in Hindi (हिन्दी). Write your whole answer in Devanagari script.';
+      return 'Answer entirely in Hindi (हिन्दी). Write your whole reply in Devanagari script using simple, natural Hindi. Do not reply in English.';
     case 'bengali':
-      return 'Respond in Bengali (বাংলা). Write your whole answer in the Bengali script.';
+      return 'Answer entirely in Bengali (বাংলা). Write your whole reply in the Bengali script using simple, natural Bengali. Do not reply in English.';
     case 'tamil':
-      return 'Respond in Tamil (தமிழ்). Write your whole answer in the Tamil script.';
+      return 'Answer entirely in Tamil (தமிழ்). Write your whole reply in the Tamil script using simple, natural Tamil. Do not reply in English.';
     default:
-      return 'Respond in English.';
+      return 'Answer in English.';
   }
 }
 
@@ -564,15 +564,20 @@ function toLlamaMessages(messages: ChatMessage[]) {
   });
 }
 
-/** Appends the reply-language directive to the leading system message so the
- *  model generates its answer in the chosen language, regardless of how the
- *  question was typed. A no-op when there is no system message in the list. */
-function injectLanguageDirective(messages: ChatMessage[], language: ChatLanguage): ChatMessage[] {
+/** Adds the reply-language directive to the leading system message AND to the
+ *  last user message so the model answers in the chosen language even mid-chat
+ *  where earlier assistant turns (and therefore the visible context) may be in
+ *  a different language. A no-op when there is no system message in the list. */
+function applyLanguageToMessages(messages: ChatMessage[], language: ChatLanguage): ChatMessage[] {
+  const directive = languageDirective(language);
   let injected = false;
-  return messages.map((m) => {
+  return messages.map((m, i) => {
     if (!injected && m.role === 'system') {
       injected = true;
-      return { ...m, content: applyLanguage(m.content, language) };
+      return { ...m, content: `${m.content}\n\n${directive}` };
+    }
+    if (i === messages.length - 1 && m.role === 'user') {
+      return { ...m, content: `${m.content}\n\n${directive}` };
     }
     return m;
   });
@@ -616,7 +621,7 @@ export async function streamChatMessage({
     let accumulated = '';
     const result = await ctx.completion(
       {
-        messages: toLlamaMessages(injectLanguageDirective(messages, replyLanguage)),
+        messages: toLlamaMessages(applyLanguageToMessages(messages, replyLanguage)),
         n_predict: 512,
         temperature: 0.7,
         top_p: 0.9,
