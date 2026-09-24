@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Text,
   TouchableOpacity,
   View,
@@ -323,7 +322,7 @@ export default function ThreadScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: '#fff' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
       keyboardVerticalOffset={headerHeight + (showModelBanner ? 40 : 0)}
     >
       {showModelBanner && (

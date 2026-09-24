@@ -7,6 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -193,166 +195,173 @@ export default function OnboardingScreen() {
 
   return (
     <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
-      <ScrollView
-        contentContainerClassName="px-5 pt-4 pb-8"
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : insets.top}
       >
-        {/* Progress indicator */}
-        <View className="flex-row items-center justify-between mb-8">
-          {Array.from({ length: STEP_TOTAL }).map((_, i) => (
-            <React.Fragment key={i}>
-              <View className="flex-1 flex-row items-center">
-                <View
-                  className={`h-2.5 rounded-full ${
-                    i < step ? 'bg-teal-600' : i === step - 1 ? 'bg-teal-400' : 'bg-gray-200'
-                  }`}
-                />
-              </View>
-              {i < STEP_TOTAL - 1 && <View className="w-3" />}
-            </React.Fragment>
-          ))}
-        </View>
-
-        <Text className="text-3xl font-poppinsBold text-gray-900 mb-2">
-          {step === 1 ? "Let's get to know you" : 'Download your AI model'}
-        </Text>
-        <Text className="text-base text-gray-500 mb-8">
-          {step === 1
-            ? 'Tell us a bit about your farm so we can personalise your experience.'
-            : 'Choose one model to download. It runs entirely on your device after this.'}
-        </Text>
-
-        {step === 1 && (
-          <View className="gap-5">
-            {FIELDS.map((field) => (
-              <View
-                key={field.key}
-                className="rounded-2xl bg-white border border-gray-200 p-4 shadow-sm"
-              >
-                <View className="flex-row items-center mb-2">
-                  <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-teal-50">
-                    <Ionicons name={field.icon as any} size={20} color="#0d9488" />
-                  </View>
-                  <Text className="text-base font-semibold text-gray-800">{field.label}</Text>
+        <ScrollView
+          contentContainerClassName="px-5 pt-4 pb-8"
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Progress indicator */}
+          <View className="flex-row items-center justify-between mb-8">
+            {Array.from({ length: STEP_TOTAL }).map((_, i) => (
+              <React.Fragment key={i}>
+                <View className="flex-1 flex-row items-center">
+                  <View
+                    className={`h-2.5 rounded-full ${
+                      i < step ? 'bg-teal-600' : i === step - 1 ? 'bg-teal-400' : 'bg-gray-200'
+                    }`}
+                  />
                 </View>
-                <TextInput
-                  value={values[field.key]}
-                  onChangeText={(text) => setValues((prev) => ({ ...prev, [field.key]: text }))}
-                  placeholder={field.placeholder}
-                  placeholderTextColor="#9ca3af"
-                  className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-gray-900"
-                />
-              </View>
+                {i < STEP_TOTAL - 1 && <View className="w-3" />}
+              </React.Fragment>
             ))}
           </View>
-        )}
 
-        {step === 2 && (
-          <View className="gap-4">
-            {LLM_MODELS.map((model) => {
-              const isDownloaded = downloaded.has(model.id);
-              const isDownloading = downloadingId === model.id;
-              const prog = progress[model.id] ?? 0;
+          <Text className="text-3xl font-poppinsBold text-gray-900 mb-2">
+            {step === 1 ? "Let's get to know you" : 'Download your AI model'}
+          </Text>
+          <Text className="text-base text-gray-500 mb-8">
+            {step === 1
+              ? 'Tell us a bit about your farm so we can personalise your experience.'
+              : 'Choose one model to download. It runs entirely on your device after this.'}
+          </Text>
 
-              return (
+          {step === 1 && (
+            <View className="gap-5">
+              {FIELDS.map((field) => (
                 <View
-                  key={model.id}
-                  className="rounded-2xl bg-white border border-gray-200 p-5 shadow-sm"
+                  key={field.key}
+                  className="rounded-2xl bg-white border border-gray-200 p-4 shadow-sm"
                 >
-                  <View className="flex-row items-start justify-between">
-                    <View className="flex-1">
-                      <Text className="text-lg font-semibold text-gray-900">{model.label}</Text>
-                      <Text className="text-sm text-gray-500 mt-1">
-                        {model.description} — {model.approxSize}
-                      </Text>
+                  <View className="flex-row items-center mb-2">
+                    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-teal-50">
+                      <Ionicons name={field.icon as any} size={20} color="#0d9488" />
                     </View>
-                    {isDownloaded && (
-                      <View className="rounded-full bg-green-50 px-3 py-1">
-                        <Text className="text-xs font-semibold text-green-700">Ready</Text>
-                      </View>
-                    )}
+                    <Text className="text-base font-semibold text-gray-800">{field.label}</Text>
                   </View>
+                  <TextInput
+                    value={values[field.key]}
+                    onChangeText={(text) => setValues((prev) => ({ ...prev, [field.key]: text }))}
+                    placeholder={field.placeholder}
+                    placeholderTextColor="#9ca3af"
+                    className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-gray-900"
+                  />
+                </View>
+              ))}
+            </View>
+          )}
 
-                  {isDownloading && (
-                    <View className="mt-4">
-                      <View className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                        <View
-                          className="h-full rounded-full bg-teal-600"
-                          style={{ width: `${Math.round(prog * 100)}%` }}
-                        />
-                      </View>
-                      <View className="flex-row items-center mt-2">
-                        <ActivityIndicator size="small" color="#0d9488" />
-                        <Text className="text-xs text-gray-500 ml-2">
-                          Downloading… {Math.round(prog * 100)}%
+          {step === 2 && (
+            <View className="gap-4">
+              {LLM_MODELS.map((model) => {
+                const isDownloaded = downloaded.has(model.id);
+                const isDownloading = downloadingId === model.id;
+                const prog = progress[model.id] ?? 0;
+
+                return (
+                  <View
+                    key={model.id}
+                    className="rounded-2xl bg-white border border-gray-200 p-5 shadow-sm"
+                  >
+                    <View className="flex-row items-start justify-between">
+                      <View className="flex-1">
+                        <Text className="text-lg font-semibold text-gray-900">{model.label}</Text>
+                        <Text className="text-sm text-gray-500 mt-1">
+                          {model.description} — {model.approxSize}
                         </Text>
                       </View>
+                      {isDownloaded && (
+                        <View className="rounded-full bg-green-50 px-3 py-1">
+                          <Text className="text-xs font-semibold text-green-700">Ready</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
 
-                  {isDownloaded && (
-                    <View className="mt-3 flex-row items-center">
-                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                      <Text className="text-green-700 ml-2 text-sm font-medium">Downloaded</Text>
-                    </View>
-                  )}
+                    {isDownloading && (
+                      <View className="mt-4">
+                        <View className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <View
+                            className="h-full rounded-full bg-teal-600"
+                            style={{ width: `${Math.round(prog * 100)}%` }}
+                          />
+                        </View>
+                        <View className="flex-row items-center mt-2">
+                          <ActivityIndicator size="small" color="#0d9488" />
+                          <Text className="text-xs text-gray-500 ml-2">
+                            Downloading… {Math.round(prog * 100)}%
+                          </Text>
+                        </View>
+                      </View>
+                    )}
 
-                  {!isDownloaded && !isDownloading && (
-                    <TouchableOpacity
-                      onPress={() => handleDownload(model.id)}
-                      className="mt-4 flex-row items-center justify-center rounded-xl bg-teal-600 py-3 active:bg-teal-700"
-                    >
-                      <Ionicons name="download-outline" size={18} color="white" />
-                      <Text className="ml-2 text-sm font-semibold text-white">Download</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
+                    {isDownloaded && (
+                      <View className="mt-3 flex-row items-center">
+                        <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                        <Text className="text-green-700 ml-2 text-sm font-medium">Downloaded</Text>
+                      </View>
+                    )}
+
+                    {!isDownloaded && !isDownloading && (
+                      <TouchableOpacity
+                        onPress={() => handleDownload(model.id)}
+                        className="mt-4 flex-row items-center justify-center rounded-xl bg-teal-600 py-3 active:bg-teal-700"
+                      >
+                        <Ionicons name="download-outline" size={18} color="white" />
+                        <Text className="ml-2 text-sm font-semibold text-white">Download</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          <View className="mt-8 flex-row gap-3">
+            {step > 1 && (
+              <TouchableOpacity
+                onPress={goBack}
+                className="flex-1 rounded-xl border border-gray-300 bg-white py-4 items-center active:bg-gray-50"
+              >
+                <Text className="text-base font-semibold text-gray-700">Back</Text>
+              </TouchableOpacity>
+            )}
+
+            {step < STEP_TOTAL ? (
+              <TouchableOpacity
+                onPress={goNext}
+                disabled={!step1Done}
+                className={`flex-1 rounded-xl py-4 items-center ${
+                  step1Done ? 'bg-teal-600 active:bg-teal-700' : 'bg-gray-200'
+                }`}
+              >
+                <Text
+                  className={`text-base font-semibold ${step1Done ? 'text-white' : 'text-gray-400'}`}
+                >
+                  Next
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleContinue}
+                disabled={!canContinue}
+                className={`flex-1 rounded-xl py-4 items-center ${
+                  canContinue ? 'bg-teal-600 active:bg-teal-700' : 'bg-gray-200'
+                }`}
+              >
+                <Text
+                  className={`text-base font-semibold ${canContinue ? 'text-white' : 'text-gray-400'}`}
+                >
+                  Get Started
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
-
-        <View className="mt-8 flex-row gap-3">
-          {step > 1 && (
-            <TouchableOpacity
-              onPress={goBack}
-              className="flex-1 rounded-xl border border-gray-300 bg-white py-4 items-center active:bg-gray-50"
-            >
-              <Text className="text-base font-semibold text-gray-700">Back</Text>
-            </TouchableOpacity>
-          )}
-
-          {step < STEP_TOTAL ? (
-            <TouchableOpacity
-              onPress={goNext}
-              disabled={!step1Done}
-              className={`flex-1 rounded-xl py-4 items-center ${
-                step1Done ? 'bg-teal-600 active:bg-teal-700' : 'bg-gray-200'
-              }`}
-            >
-              <Text
-                className={`text-base font-semibold ${step1Done ? 'text-white' : 'text-gray-400'}`}
-              >
-                Next
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={handleContinue}
-              disabled={!canContinue}
-              className={`flex-1 rounded-xl py-4 items-center ${
-                canContinue ? 'bg-teal-600 active:bg-teal-700' : 'bg-gray-200'
-              }`}
-            >
-              <Text
-                className={`text-base font-semibold ${canContinue ? 'text-white' : 'text-gray-400'}`}
-              >
-                Get Started
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

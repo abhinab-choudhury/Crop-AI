@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { Text } from '@/components/ui/text';
@@ -55,11 +54,7 @@ export default function CropRecommendationForm() {
   ];
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-      style={{ flex: 1 }}
-    >
+    <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={90} style={{ flex: 1 }}>
       <ScrollView contentContainerClassName="flex-grow justify-center items-center p-5">
         {/* Title */}
         <View className="mb-8 items-center">
