@@ -1,0 +1,16 @@
+# Controls the "New issue" chooser page.
+# blank_issues_enabled: false -> forces everyone through a template, so every
+# issue arrives with the info you need (most useful single setting for triage).
+blank_issues_enabled: false
+
+contact_links:
+  # Redirect questions away from the issue tracker so it stays actionable.
+  - name: 💬 Questions & Help
+    url: https://github.com/abhinab-choudhury/crop-ai/discussions
+    about: Ask usage questions or share ideas in Discussions, not Issues.
+
+  # Security bugs must NOT be filed publicly. GitHub's private advisory flow
+  # keeps the report hidden until a fix is released.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/abhinab-choudhury/crop-ai/security/advisories/new
+    about: Please report vulnerabilities privately here, never in a public issue.

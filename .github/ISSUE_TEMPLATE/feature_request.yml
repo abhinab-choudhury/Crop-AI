@@ -1,0 +1,83 @@
+name: ✨ Feature request
+description: Suggest an idea or improvement
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Describing the **problem** first (not just the solution)
+        helps us find the best design together.
+
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched existing issues and discussions; this has not been requested
+          required: true
+
+  # Problem-first framing avoids "build me X" requests with no context.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and what is getting in the way?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe what you would like to see. Mockups and examples welcome.
+    validations:
+      required: true
+
+  # Forces the requester to think about trade-offs; helps maintainers decide.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches or workarounds you tried.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend (web)
+        - Backend / API
+        - Mobile app
+        - Docs
+        - Developer experience
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this to you?
+      options:
+        - Nice to have
+        - Would improve my workflow
+        - Blocking my use case
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, related projects, screenshots, anything else.
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to implement this feature
+          required: false

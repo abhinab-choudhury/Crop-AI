@@ -1,0 +1,125 @@
+name: 🐛 Bug report
+description: Something is broken or behaving unexpectedly
+title: "[Bug]: "           # Prefix makes issues easy to scan in the list view
+labels: ["bug", "needs-triage"]   # Labels must already exist in the repo
+# assignees: ["your-username"]    # Optional: auto-assign to yourself
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! 🙏
+        Please fill in as much detail as you can. Reproducible reports get fixed much faster.
+
+  # Duplicate check up front saves maintainers the most time.
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched [existing issues](../issues?q=is%3Aissue) and this has not been reported
+          required: true
+        - label: I am using the latest version
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+      placeholder: "When I click X, Y happens instead of Z."
+    validations:
+      required: true
+
+  # Numbered steps are the single most valuable part of a bug report.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps so a maintainer can see the bug themselves.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  # Dropdown (not free text) keeps labels/filtering consistent.
+  # TODO: edit the options to match your project's modules.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - Frontend (web)
+        - Backend / API
+        - Mobile app
+        - Docs
+        - Infrastructure / Docker
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Release tag, or commit SHA if running from source.
+      placeholder: "v1.2.0 or a1b2c3d"
+    validations:
+      required: true
+
+  # multiple: true lets people select every platform they reproduced on.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Android
+        - iOS
+        - Docker
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment details
+      description: Browser, OS version, Node version, device model, etc.
+      placeholder: "Chrome 130, Ubuntu 24.04, Node 20.11"
+
+  # render: shell wraps the content in a code block automatically,
+  # so users can paste raw logs without worrying about Markdown formatting.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / stack trace
+      description: Paste any error output. Remove secrets, tokens and personal data first.
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / screen recording
+      description: Drag and drop images or videos here.
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to submit a pull request to fix this
+          required: false
