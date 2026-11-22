@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://crop-ai-one.vercel.app/icon.png" alt="Crop AI Logo" width="120"/>
-  <h1>🌾 Crop AI</h1>
+  <h1>Crop AI</h1>
   <p><strong>AI-Powered Crop Diagnosis, Advisory & Multilingual Assistance</strong></p>
   <p>An end-to-end, mobile-first platform that helps farmers diagnose crop diseases,<br/>get intelligent recommendations — fully on-device.</p>
 </div>
@@ -127,7 +127,7 @@ Crop-AI/
 
 ---
 
-## 🚀 Build Your Own Binary
+## Build Your Own Binary
 
 The native app uses custom native modules (`llama.rn`, ONNX Runtime), so it **cannot run in Expo Go**. The easiest way to get a working APK is via the provided **GitHub Actions** workflow — no local Android toolchain needed.
 
@@ -137,11 +137,11 @@ The native app uses custom native modules (`llama.rn`, ONNX Runtime), so it **ca
 
 For a local build (JDK 17 + Android SDK/NDK), see [apps/native/README.md](apps/native/README.md#building-the-android-apk).
 
-> ⚠️ **Expo Go** can't run native AI modules — always use a dev build or the CI APK.
+> **Expo Go** can't run native AI modules — always use a dev build or the CI APK.
 
 ---
 
-## 📦 Build Android APK
+## Build Android APK
 
 Native app builds into an installable `.apk` via GitHub Actions — no local toolchain needed:
 
