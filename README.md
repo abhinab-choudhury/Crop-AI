@@ -6,7 +6,6 @@
 </div>
 
 <p align="center">
-  <a href="https://deepwiki.com/abhinab-choudhury/Crop-AI"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"/></a>
   <a href="https://github.com/abhinab-choudhury/Crop-AI/releases"><img src="https://img.shields.io/badge/Download%20Android%20App-APK-green?logo=android" alt="Download Android App"/></a>
   <img src="https://img.shields.io/badge/On--Device-100%25%20Offline-blue" alt="On-Device"/>
   <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey" alt="Platform"/>
